@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+"""
+Quick test case for bug 54152, which was that sc_io_demux failed an
+SC_TEST when trying to write to a socket just as the remote end
+closed it.
+
+sct_io_flooder connects to an sc_io_demux, waits for a NEW_CONN msg,
+then floods it with send requests until it sees a CLOSE message, at
+which point it waits for the next NEW_CONN.
+
+The test app hooks up the node graph then loops forever connecting
+and disconnecting a client to the sc_io_demux.
+"""
+import os, sys, socket, time
+
+top = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), '..', '..'))
+sys.path.append(os.path.join(top, 'src', 'python'))
+os.putenv('SC_NODE_PATH', os.path.join(top, 'src', 'test', 'nodes'))
+import solar_capture
+
+def main(path='/tmp/dar.sock'):
+    if os.path.exists(path):
+        os.unlink(path)
+    session = solar_capture.new_session()
+    thread = session.new_thread()
+
+    fwd = thread.new_node('sc_pool_forwarder')
+    fl = thread.new_node('sct_io_flooder')
+    io = thread.new_node('sc_io_demux', args={"listen": 'unix:' + path} )
+    fwd.connect(fl).connect(io).connect(fl, 'io')
+
+    print "Starting session"
+    session.go()
+
+    deadline = time.time() + 5
+    while not os.path.exists(path):
+        time.sleep(0.1)
+        if time.time() > deadline:
+            print "ERROR:", path, "did not appear"
+            sys.exit(1)
+
+    print "Server initialised, starting clients"
+
+    while True:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.connect(path)
+        s.close()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass

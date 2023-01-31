@@ -1,0 +1,152 @@
+#!/usr/bin/python2
+'''
+SPDX-License-Identifier: MIT
+X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+'''
+
+import sys, os, textwrap
+
+top = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), '..'))
+if os.path.exists(os.path.join(top, 'src', 'python', 'solar_capture')):
+    sys.path.insert(0, os.path.join(top, 'src', 'python'))
+import solar_capture as sc
+
+
+usage_text = '''
+  solar_capture_doc [options] <topic>
+
+  solar_capture_doc list_attr        - List names of attributes
+  solar_capture_doc list_attr <obj>  - List attributes that apply to obj
+  solar_capture_doc attr <name>      - Document named attribute
+  solar_capture_doc attr             - Document all attributes
+  solar_capture_doc attr <obj>       - Document attributes that apply to obj
+'''
+
+
+def out(msg):
+    sys.stdout.write(msg)
+
+
+def err(msg):
+    sys.stderr.write(msg)
+
+
+def usage_err(msg=None):
+    if msg:
+        sys.stderr.write("\nERROR: %s\n\n" % msg)
+    opt_parser.print_help(file=sys.stderr)
+    sys.exit(1)
+
+
+class Bunch:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+
+def get_attrs(obj=None):
+    if options.all:
+        filter_out = ['hidden']
+    else:
+        filter_out = ['hidden', 'unstable', 'beta', 'deprecated']
+    names = sc.sc.attr_doc("")
+    attrs = dict()
+    for name in names:
+        a = Bunch()
+        docs = sc.sc.attr_doc(name)
+        a.name, a.type, a.status, a.default, a.objects, a.doc = docs
+        if a.status in filter_out:
+            continue
+        a.objects = a.objects.split(',')
+        if obj is None or obj in a.objects or "sc_"+obj in a.objects:
+            attrs[a.name] = a
+    return attrs
+
+
+def doc_attr(a):
+    l1 = "Attribute: %s (%s)" % (a.name, a.type)
+    out(l1 + '\n')
+    out("-" * len(l1) + '\n')
+    out("   Status: %s\n" % (a.status,))
+    out("  Default: %s\n" % (a.default,))
+    out("  Objects: %s\n" % (" ".join(a.objects),))
+    wrapper = textwrap.TextWrapper(initial_indent='  ',
+                                   subsequent_indent='  ')
+    for para in a.doc.split('\n'):
+        out('\n' + wrapper.fill(para) + '\n')
+
+
+def cmd_list_attr(args):
+    if len(args) > 1:
+        usage_err("topic 'list_attr' accepts zero or one arg")
+    if len(args) == 1:
+        attrs = get_attrs(obj=args[0])
+        if not attrs:
+            err("ERROR: No attributes associated with objects of type '%s'\n" %
+                args[0])
+            sys.exit(2)
+    else:
+        attrs = get_attrs()
+    names = list(attrs.keys())
+    names.sort()
+    out('\n'.join(names) + '\n')
+
+
+def cmd_attr(args):
+    if len(args) > 1:
+        usage_err("topic 'attr' accepts zero or one arg")
+    attrs = get_attrs()
+    if len(args) > 0:
+        if args[0] in attrs:
+            a = attrs[args[0]]
+            attrs = { a.name : a }
+        else:
+            attrs = get_attrs(obj=args[0])
+            if not attrs:
+                err("ERROR: '%s' is not an attribute name or an object "
+                    "type\n" % args[0])
+    names = attrs.keys()
+    names.sort()
+    for name in names:
+        doc_attr(attrs[name])
+        out("\n\n")
+
+
+def cmd_help(args):
+    opt_parser.print_help(file=sys.stdout)
+
+######################################################################
+
+opt_parser = None
+options = None
+
+
+def main():
+    import optparse
+    op = optparse.OptionParser(usage=usage_text)
+    op.add_option('--all', dest='all', action='store_true',
+                  help='Do not hide deprecated and unstable features',
+                  default=False)
+
+    global opt_parser, options
+    opt_parser = op
+    (options, args) = op.parse_args()
+
+    if len(args) == 0:
+        usage_err()
+    cmd_name = args[0]
+    handler_name = 'cmd_%s' % cmd_name
+    args = args[1:]
+    if handler_name not in globals():
+        usage_err("unknown topic '%s'" % cmd_name)
+    handler = globals()[handler_name]
+    handler(args)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except IOError:
+        # Likely in a pipeline and 
+        ex = sys.exc_info()
+        if ex[1].errno != errno.EPIPE:
+            raise

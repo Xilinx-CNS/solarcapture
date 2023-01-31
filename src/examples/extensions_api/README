@@ -1,0 +1,64 @@
+SPDX-License-Identifier: MIT
+X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+Introduction
+============
+
+ These examples illustrate the SolarCapture extensions API.  The extensions
+ API let's you write custom packet processing nodes, which can then be used
+ in a SolarCapture application.
+
+ Nodes typically receive packets on their inputs, do something useful with
+ the packets and forward them to their outputs.  Nodes may also generate
+ new packets using buffers from a packet pool.
+
+ The 'reflect' examples all do roughly the same job: They switch the source
+ and destination Ethernet MAC addresses.  The different versions show
+ different features of the extensions API -- see the source code comments
+ for details.
+
+
+Compiling
+=========
+
+ To build the examples, just run make:
+
+   $ make
+
+ 
+Using
+=====
+
+ The 'reflect' node is used by the reflect.py example, which you'll find in
+ the 'examples/forwarding' subdirectory.
+
+ You can use custom nodes in two ways.  The first way is to create a
+ standalone node library, which SolarCapture will load at runtime.  A node
+ library can contain implementations for several node types.  If a node
+ library has the same name as the node type (with a .so suffix) and is in a
+ directory on the node path (SC_NODE_PATH), then SolarCapture will be able
+ to find it:
+
+   # in python
+   node = thread.new_node('my_node')
+
+   /* in C */
+   sc_node_alloc_named(&node, attr, thread, "my_node", NULL, args, n_args);
+
+ Otherwise the name of the library or full path to the library must be given:
+
+   # in python
+   node = thread.new_node('my_node', library='my_lib')
+   node = thread.new_node('my_node', library='/path/to/my_lib.so')
+
+   /* in C */
+   sc_node_alloc_named(&node, attr, thread, "my_node",
+                       "my_lib", args, n_args);
+   sc_node_alloc_named(&node, attr, thread, "my_node",
+                       "/path/to/my_lib.so", args, n_args);
+
+ The second way to use a custom node is to link the node implementation
+ directly into your C application, and pass a pointer to the factory to
+ sc_node_alloc():
+
+   sc_node_alloc(&node, attr, thread, &my_node_sc_node_factory, args, n_args);

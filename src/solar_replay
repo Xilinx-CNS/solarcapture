@@ -1,0 +1,412 @@
+#!/usr/bin/python2
+'''
+SPDX-License-Identifier: MIT
+X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+'''
+
+import sys, time, os, re, copy
+
+top = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), '..'))
+if os.path.exists(os.path.join(top, 'src', 'python', 'solar_capture')):
+    sys.path.insert(0, os.path.join(top, 'src', 'python'))
+import solar_capture as sc
+
+
+HELP_PAUSE = """\
+  Pause this many seconds at startup before replaying the first packet.
+
+  NOTE: This option is ignored in interactive mode, which does not replay
+        any packets until it receives a command to do so.
+"""
+
+
+HELP_SPEEDUP = """\
+  Speed up (or slow down with < 1) packet replay by this factor.
+
+  Default: 1.0 (i.e. honour pcap file timestamps)
+"""
+
+
+HELP_PPS = """\
+  Replay packets at a fixed rate, transmitting this many packets per
+  second.
+"""
+
+
+HELP_BW = """\
+  Replay packets at a fixed rate, transmitting this many bits per
+  seconds.
+"""
+
+
+HELP_REPEAT = """\
+  Set to loop back round to the first packet once all packets
+  have been replayed, and continue to do so until killed.
+
+  Note: This option requires at least as many buffers as
+  there are packets in the input file.
+"""
+
+
+HELP_NUM_REPEATS = """\
+  Set to loop back round to the first packet once all packets
+  have been replayed, up to n times.
+
+  Note: This option requires at least as many buffers as
+  there are packets in the input file.
+"""
+
+
+HELP_BPF = """\
+  Replay only packets matching this Berkeley Packet Filter (BPF)
+  specification.
+"""
+
+
+HELP_READER_CORE = """\
+  This option controls which cpu core the file reader(s) will run
+  on. If you assign multiple readers to the same core, they will still
+  run in separate threads.
+
+  Default: each reader has its own non-affinitised thread.
+"""
+
+
+HELP_INJECTOR_CORE = """\
+  This option controls which cpu core the packet injector(s) will
+  run on. If you assign two injectors to the same core, they will
+  run in the same thread.
+
+  Default: each injector has its own non-affinitised thread.
+"""
+
+
+HELP_PACKET_RANGE = """\
+  This option allows you to select a subset of the input file
+  for transmit, based on packet index within the file.
+
+  Specify a comma-separated list of indexes or ranges. Ranges may be
+  open or closed.
+
+  Notes:
+   * The specified ranges must be non-overlapping and in order
+   * Ranges are inclusive at both ends
+   * Indexes are 0-based
+"""
+
+
+HELP_TIME_RANGE = """\
+  This option allows you to select a subset of the input file
+  for transmit, based on packet timestamp.
+
+  Specify a single range, which may be open at either end. You may
+  use any of the following formats to specify a timestamp:
+
+   * X.Y[smh]              Time since first packet in input file
+   * +X.Y[smh]             Time since start of time range
+   * HH:MM:SS              Time of day
+   * YYYY/MM/DD HH:MM:SS   Absolute time and date
+
+  For times without a date, the date of the start of the time range
+  is used if one was specified; if not the date of the first packet in
+  the input file is used.
+"""
+
+
+HELP_CTL_SCRIPT = """\
+  This option allows you to control packet send rate using a control
+  script. The script should be a text file containing one command per
+  line. Supported commands are:
+
+   * pps N          # Transmit at a fixed packet rate per second
+   * bw N           # Transmit at a fixed bitrate
+   * speedup N      # Set transmit rate to a multiple of the rate in the input
+   * for N <unit>   # Maintain the specified rate for this duration
+   * pause N <unit> # Pause replay (i.e. stop sending packets) for this duration
+   * stop           # Stop replaying for good (solar_replay will exit once all
+                    # replay streams have received this command)
+
+  Any rate-setting command (i.e. "pps", "bw" or "speedup") must be immediately
+  followed by a "for" command specifying a duration. The "for" command cannot
+  be used anywhere else.
+
+  For commands that take a numeric value, you may specify the value as an
+  integer, decimal or decimal+exponent (e.g. "5.3e3").
+
+  For commands that take a duration, supported units are "s",
+  "ms" (milliseconds), "us" (microseconds) and "ns" (nanoseconds).
+
+  For example, this script would ramp up the packet rate over a period of
+  5 seconds and then exit:
+
+  pps 100
+  for 1s
+  pps 200
+  for 1s
+  pps 400
+  for 1s
+  pps 800
+  for 1s
+  pps 1600
+  for 1s
+  stop
+"""
+
+
+HELP_INTERACTIVE = """\
+  This option allows you to control packet send rate via standard input.
+  At startup solar_replay will not send any packets, instead waiting
+  for a command to specify what rate to send at.
+
+  The following commands are available:
+
+   * pps N          # Starts sending at N packets per second
+   * bw N           # Starts sending at N bits per second
+   * speedup N      # Starts sending at a multiple of the packet rate in
+                    # the input file (can be < 1)
+   * N              # Shortcut for "speedup N"
+   * stop           # Stops sending packets
+   * sleep N [unit] # Delays execution of the next command for this long.
+                      If it is currently sending packets, solar_replay will
+                      continue to do so during this period
+
+  For commands that take a numeric value, you may specify the value as an
+  integer, decimal or decimal+exponent (e.g. "5.3e3").
+
+  You may optionally specify a unit for the "sleep" command. The default unit
+  is seconds. Supported units are "s", "ms" (milliseconds), "us" (microseconds)
+  and "ns" (nanoseconds).
+
+  NOTE: If standard input is closed (e.g. via CTRL-D in terminal or EOF on a
+  pipe), solar_replay will exit immediately even if it hasn't sent all packets.
+"""
+
+
+HELP_PREBUFFER = """\
+  This option tells solar_replay to read the full input file
+  before sending any packets. If there are not enough buffers for
+  the entire file, solar_replay will keep reading until it runs
+  out of buffers, and then start sending.
+"""
+
+
+HELP_INTERFACE = """\
+  Specify a network interface to replay packets to.  An input file name
+  must also be given with input=.
+"""
+
+
+HELP_INPUT = """\
+  Specify the name of the input file that packets are to be read from.
+"""
+
+
+def handle_interface(config, k, v):
+    config.new_instance(interface=v)
+
+
+def handle_other_arg(config, k, v):
+    if v is None: # unknown arg without "=foo" suffix
+        sc.cli.err("Unparsable argument %r" % k)
+    # This handles the old-style "interface=input" syntax.
+    def is_interface(s):
+        return (not os.path.isabs(s) and
+                os.path.exists(os.path.join('/sys/class/net', s)))
+    if not is_interface(k):
+        sc.cli.err("'%s' is not a network interface name or an option" % k)
+    config.new_instance(interface=k, input=v)
+
+
+_args = [
+    sc.cli.Float('pause', default=1.0),
+    sc.cli.Str('speedup'),
+    sc.cli.Str('pps'),
+    sc.cli.Str('bw'),
+    sc.cli.Bool('repeat', default=0),
+    sc.cli.Str('bpf'),
+    sc.cli.Int('reader_core', default=-1),
+    sc.cli.Str('injector_core', default=-1),
+    sc.cli.Str('packet_range'),
+    sc.cli.Str('time_range'),
+    sc.cli.Str('ctl_script'),
+    sc.cli.Bool('interactive', default=0),
+    sc.cli.Bool('prebuffer', default=0),
+    sc.cli.Arg("interface", handler=handle_interface),
+    sc.cli.Str("input"),
+    sc.cli.Int('num_repeats', default=-1),
+    ]
+for arg in _args:
+    arg.usage = globals()['HELP_' + arg.name.upper()]
+known_args = dict((a.name, a) for a in _args)
+
+
+usage_text = '''
+Usage:
+  solar_replay [global-opts] interface=ethX input=ethX.pcap [stream-opts] ...
+
+The contents of file <input> will be replayed over network interface
+<interface>.  You may specify multiple interface=input arguments. Specify
+"stdin" to read pcap data from standard input.
+
+Global options apply to all streams and may be overridden by stream
+options, which apply only to the <interface>=<pcap> immediately
+preceding them.
+
+options:
+  pause=<seconds>
+  speedup=<multiplier>
+  pps=<pkt-per-sec>
+  bw=<bits-per-sec>
+  repeat
+  num_repeats=<repeat_pcap_n_times>
+  prebuffer
+  bpf=<bpf_filter>
+  packet_range=A-B[,C,-D,E-,...]
+  time_range=<t0>-<t1>
+  ctl_script=</path/to/ts_ctl_script>
+  interactive
+  reader_core=<core_index>
+  injector_core=<core_index>
+  node:[node_args]
+'''
+
+
+_inj_threads = {}
+def get_injector_thread(session, core):
+    global _inj_threads
+    if core == -1:
+        return session.new_thread()
+    if core not in _inj_threads:
+        _inj_threads[core] = session.new_thread(attr={'affinity_core': core})
+    return _inj_threads[core]
+
+
+_stdin_chain = None
+def connect_stdin(node):
+    global _stdin_chain
+    if _stdin_chain is None:
+        fd = sys.stdin.fileno()
+        thrd = node.thread.session.new_thread(attr=dict(busy_wait=0))
+        attr = dict(n_bufs_tx=2, require_huge_pages=0, request_huge_pages=0)
+        reader = thrd.new_node('sc_fd_reader', attr=attr, args=dict(fd=fd))
+        line_reader = thrd.new_node('sc_line_reader', attr=attr)
+        _stdin_chain = reader.connect(line_reader).connect(node, 'controller')
+    else:
+        _stdin_chain = _stdin_chain.connect('controller', node, 'controller')
+
+
+def connect_script(node, filename):
+    fd = os.open(filename, os.O_RDONLY)
+    thrd = node.thread.session.new_thread(attr=dict(busy_wait=0))
+    attr = dict(n_bufs_tx=2, require_huge_pages=0, request_huge_pages=0)
+    reader = thrd.new_node('sc_fd_reader', attr=attr, args=dict(fd=fd))
+    line_reader = thrd.new_node('sc_line_reader', attr=attr)
+    reader.connect(line_reader).connect(node, 'controller')
+
+
+def setup_stream(session, stream):
+    reader_attr = {'affinity_core': stream['reader_core'], 'busy_wait': 0}
+    reader_thread = session.new_thread(attr=reader_attr)
+    injector_thread = get_injector_thread(session, stream['injector_core'])
+
+    if stream['input'] == 'stdin':
+        reader_args = {'fd': sys.stdin.fileno()}
+    else:
+        reader_args = {'filename': stream['input']}
+
+    if stream['num_repeats'] != -1:
+        stream['repeat'] = True
+    if stream['repeat']:
+        reader_args['prefill'] = 'all-input'
+    elif stream['prebuffer']:
+        reader_args['prefill'] = 'all-buffers'
+    pipeline = reader_thread.new_node('sc_reader', args=reader_args)
+
+    if stream['packet_range']:
+        rf_args = {'range': stream['packet_range']}
+        rf = reader_thread.new_node('sc_range_filter', args=rf_args)
+        pipeline = pipeline.connect(rf)
+
+    if stream['time_range']:
+        tf_args = {'range': stream['time_range']}
+        tf = reader_thread.new_node('sc_timestamp_filter', args=tf_args)
+        pipeline = pipeline.connect(tf)
+
+    if stream['bpf']:
+        bpf = reader_thread.new_node('sc_filter', args={'bpf': stream['bpf']})
+        pipeline = pipeline.connect(bpf)
+
+    if stream['repeat']:
+        repeater = reader_thread.new_node('sc_repeater', args={'n_repeats': stream['num_repeats']})
+        pipeline = pipeline.connect(repeater)
+
+    for f in stream['extensions']:
+        pipeline = pipeline.connect( reader_thread.new_node(**f) )
+
+    ts_args = {'start_now': 1}
+    for k, nodek in [('speedup', 'speedup'),
+                     ('pps',     'pps'),
+                     ('bw',      'bw'),
+                     ('pause',   'offset')]:
+        if stream[k] is not None:
+            ts_args[nodek] = stream[k]
+    if stream['interactive']:
+        pacer = injector_thread.new_node('sc_rt_pacer')
+        connect_stdin(pacer)
+        pipeline = pipeline.connect(pacer)
+    else:
+        tsa = reader_thread.new_node('sc_ts_adjust', args=ts_args)
+        pacer = injector_thread.new_node('sc_pacer')
+        if stream['ctl_script']:
+            connect_script(tsa, stream['ctl_script'])
+        pipeline = pipeline.connect(tsa).connect(pacer)
+
+    pipeline = pipeline.connect(to_interface=stream['interface'])
+    pipeline = pipeline.connect(injector_thread.new_node('sc_exit'))
+    if stream['repeat']:
+        pipeline.connect(repeater, "recycle")
+
+
+def main(args):
+    streams = sc.cli.parse_args(args, known_args, usage_text,
+                                handle_unknown_arg=handle_other_arg)
+    for stream in streams:
+        if not stream['input']:
+            sc.cli.err("Missing input= for interface '%s'" % \
+                           stream['interface'])
+
+    interactive_count = len([s for s in streams if s['interactive']])
+    stdin_count = len([s for s in streams if s['input'] == 'stdin'])
+    if stdin_count > 1 :
+        sc.cli.err("Only one stream can take input from stdin")
+    if stdin_count and interactive_count:
+        sc.cli.err("Cannot use interactive mode when reading from stdin")
+
+    session = sc.new_session()
+
+    for stream in streams:
+        setup_stream(session, stream)
+
+    # Exit once interactive input sees EOF.
+    global _stdin_chain
+    if _stdin_chain:
+        thread = _stdin_chain.thread
+        exiter = thread.new_node('sc_exit', args=dict(scope='none'))
+        _stdin_chain.connect('controller', exiter)
+
+    session.go()
+    while True:
+        time.sleep(10000)
+
+
+if __name__ == '__main__':
+    try:
+        main(sys.argv[1:])
+    except (sc.SCError, ValueError), e:
+        s = str(e)
+        if 'ERROR:' not in s:
+            s = 'ERROR: ' + s
+        if not s.endswith('\n'):
+            s += '\n'
+        sys.stderr.write(s)
+        sys.exit(1)

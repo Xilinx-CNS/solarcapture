@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: MIT
+// X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+/**************************************************************************
+ * Main page
+ *************************************************************************/
+/*! \mainpage Introduction
+
+\htmlinclude disclaimer.html
+
+SolarCapture is a toolkit for high performance packet capture and other
+packet processing applications.  SolarCapture includes command line
+applications, utilities, and various API bindings.  For more detail see the
+SolarCapture User Guide.
+
+This document describes the C bindings which are used to extend
+SolarCapture and to embed it into applications.
+
+The SolarCapture C bindings are included in the solar_capture-core package.
+You should also install the solar_capture-python package which includes
+tools and documentation as well as the Python language bindings.
+
+Developers can use the SolarCapture C bindings to build high performance
+packet processing applications on Linux.  SolarCapture can receive and send
+packets with the minimum number of CPU cycles for packet capture, network
+security, NFV or other packet processing (C, C++, python) applications:
+
+- This library can be embedded in the user’s own applications. See \ref embed.
+
+- Users can also extend SolarCapture by providing processing nodes which can
+be integrated into SolarCapture’s packet processing pipeline. See \ref extend.
+
+The SolarCapture C bindings can be used with any network adapter that
+supports SolarCapture.  No AppFlex licenses are required to use the
+SolarCapture C bindings.
+
+*/

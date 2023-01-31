@@ -1,0 +1,103 @@
+#!/usr/bin/env python
+
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+import os, sys, struct, tempfile, time
+
+top = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), '..', '..'))
+sys.path.append(os.path.join(top, 'src', 'python'))
+import solar_capture
+
+DEFAULT_OPTS = {'buf_size': 256,
+                'n_bufs_tx': 32}
+
+
+def main(socket_path, client=0, edges='e0,e1,data:e2', **dm_attr):
+    session = solar_capture.new_session()
+    thread = session.new_thread()
+    edges = edges.split(',')
+
+    r_fds_in = []
+    w_fds_in = []
+    fds_out = []
+    fd_readers = []
+    line_readers = []
+    fd_writers = []
+    for i, edge in enumerate(edges):
+        r_fd, w_fd = os.pipe()
+        r_fds_in.append(r_fd)
+        w_fds_in.append(w_fd)
+        fd_readers.append(thread.new_node('sc_fd_reader', args={'fd': r_fds_in[-1]}))
+        line_readers.append(thread.new_node('sc_line_reader', args={'lstrip': 0, 'rstrip': 0, 'strip_blank': 0, 'add_nul': 0}))
+        out_fd, name = tempfile.mkstemp()
+        fds_out.append(out_fd)
+        fd_writers.append(thread.new_node('sc_fd_writer', args={'fd': fds_out[-1]}))
+
+    k = 'connect' if client else 'listen'
+    dm_args = {k: 'unix:%s' % socket_path}
+    demux = thread.new_node('sc_io_demux', args=dm_args, attr=dm_attr)
+
+    for i, edge in enumerate(edges):
+        fd_readers[i].connect(line_readers[i]).connect(demux, edge).connect(edge, fd_writers[i])
+
+    session.go()
+    time.sleep(1)
+    buffer = ''
+    exit = False
+    print "Waiting for input of the form: <edge> <conn_id> <data>"
+    print
+    while not exit:
+        buffer += os.read(sys.stdin.fileno(), 1024)
+        while '\n' in buffer:
+            line, buffer = buffer.split('\n', 1)
+            if line == "exit":
+                exit = True
+                break
+            spl = line.split(" ")
+            if len(spl) != 3:
+                print "ERROR: expected '<edge> <conn_id> <msg>', got:", `line`
+                continue
+            edge, fd, msg = spl
+            try:
+                edge_i = edges.index(edge)
+            except ValueError:
+                print "ERROR: Unknown edge '%s'" % (edge,)
+                continue
+            if edge.startswith('data:'):
+                data = msg + '\n'
+            else:
+                if not fd.isdigit():
+                    print "ERROR: Bad fd '%s'" % (fd,)
+                    continue
+                data = struct.pack('ii', int(fd), 2) + msg + '\n'
+            os.write(w_fds_in[edge_i], data)
+    for i, fd in enumerate(fds_out):
+        sys.stdout.write("\nEDGE %d\n" % i)
+        os.lseek(fd, 0, 0)
+        while True:
+            buffer = os.read(fd, 10)
+            if buffer == '':
+                break
+            sys.stdout.write(buffer)
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print "USAGE:", sys.argv[0], "<socket_path> [client] [opts]"
+        sys.exit(1)
+    try:
+        socket_path = sys.argv[1]
+        opts = dict(DEFAULT_OPTS)
+        for arg in sys.argv[2:]:
+            if '=' not in arg:
+                arg += '=1'
+            k, v = arg.split('=', 1)
+            if v.isdigit():
+                v = int(v)
+            opts[k] = v
+        main(socket_path, **opts)
+    except solar_capture.SCError as e:
+        print e
+        sys.exit(1)
+    except KeyboardInterrupt:
+        sys.exit(0)

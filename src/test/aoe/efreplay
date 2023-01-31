@@ -1,0 +1,95 @@
+#!/usr/bin/env python
+
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+import os, sys, time, optparse, struct
+top = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), '..', '..', '..'))
+# We insert these at the start of the path to ensure we
+# prefer local imports over installed packages
+sys.path.insert(0, os.path.join(top, 'src'))
+sys.path.insert(0, os.path.join(top, 'src', 'python'))
+print top
+import solar_capture as sc
+
+_pcap_magic = { # bytes -> (endianness, timestamp_resolution)
+    '\xa1\xb2\xc3\xd4': ('>', 0.000001), # microsecond res
+    '\xd4\xc3\xb2\xa1': ('<', 0.000001),
+    '\xa1\xb2\x3c\x4d': ('>', 0.000000001), # nanosecond res
+    '\x4d\x3c\xb2\xa1': ('<', 0.000000001),
+    }
+def first_ts(filename):
+    """Returns the timestamp of the first packet in this pcap file, or
+    None if it is empty or not a valid pcap file."""
+    header = file(filename, 'rb').read(40)
+    if len(header) < 40 or header[:4] not in _pcap_magic:
+        return None
+    endian, res = _pcap_magic[header[:4]]
+    sec, frac = struct.unpack(endian + 'II', header[24:32])
+    return sec + frac * res
+
+class ReplayInterface(object):
+    def __init__(self, session, ifname, filename):
+        self.name = ifname
+        self.filename = filename
+        self.t0 = first_ts(filename)
+        self.session = session
+        self.thread = self.session.new_thread()
+        self.vi = self.thread.new_vi(self.name)
+
+        #Create a list of nodes and ensure that the 1st node is a reader.
+        reader_args = dict(filename=self.filename)
+        self.nodes = [self.thread.new_node('sc_reader',
+                                           args=reader_args)]
+
+    def pipeline(self):
+        assert len(self.nodes) > 0
+        first_node = self.nodes[0]
+        for second_node in self.nodes[1:]:
+            sc.connect(first_node, second_node)
+            first_node = second_node
+        sc.connect(first_node, self.vi)
+
+    def add_pacer(self, pacer_args):
+        self.nodes.append(self.thread.new_node('sc_pacer'))
+
+    def add_ts_adjust(self, ts_adjust_args):
+        if not ts_adjust_args:
+            ts_adjust_args = None
+        self.nodes.append(self.thread.new_node('sc_ts_adjust',
+                                               args=ts_adjust_args))
+
+def create_interfaces(session, args):
+    interfaces = dict()
+    for arg in args:
+        arg = arg.split('=')
+        interfaces[arg[0]] = ReplayInterface(session, arg[0], arg[1])
+    return interfaces
+
+if __name__ == '__main__':
+    parser = optparse.OptionParser()
+    parser.add_option("-s", "--speed", type="float", default=1.0,
+                      help="Choose custom replay speed (default 1.0)")
+    (options, args) = parser.parse_args()
+
+    session = sc.new_session()
+    interfaces = create_interfaces(session, args)
+    valid_t0s = [intf.t0 for intf in interfaces.values() if intf.t0 is not None]
+    if valid_t0s:
+        t0 = min(valid_t0s)
+    else:
+        t0 = 0
+
+    for name, interface in interfaces.iteritems():
+        if options.speed:
+            start_at = time.time() + (interface.t0 or 0) - t0
+            ts_adjust_args = dict(start_at=start_at, speedup=options.speed)
+            interface.add_ts_adjust(ts_adjust_args)
+
+
+        interface.add_pacer(None)
+        interface.pipeline()
+
+    session.go()
+    while True:
+        time.sleep(10000)

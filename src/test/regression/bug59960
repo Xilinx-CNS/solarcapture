@@ -1,0 +1,43 @@
+#! /usr/bin/python2
+
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+#
+# Regression test for bug 59960. Prior to the fix the script would
+# segfault in session.go().
+#
+# Due to a flaw in the logic that selects node prep order, we would
+# attempt to prep a writer subnode before *its* subnode, leading to
+# a null pointer dereference.
+
+import sys, time, solar_capture
+
+def main(intf=None, pause=1, threads=1):
+    session = solar_capture.new_session()
+
+    t_src = session.new_thread(attr={'busy_wait': 0})
+    t_gen = session.new_thread(attr={'busy_wait': 0}) if threads > 1 else t_src
+    t_wr = session.new_thread(attr={'busy_wait': 0}) if threads > 2 else t_gen
+
+    writer = t_wr.new_node('sc_writer', args={'filename': '/dev/null'})
+
+    src = t_src.new_vi(intf) if intf else t_src.new_node('sc_pool_forwarder')
+    pktgen = t_gen.new_node('sc_pktgen', args={'pps': '1', 'size': '120'})
+
+    src.connect(pktgen).connect(writer)
+
+    print "Starting session"
+    session.go()
+
+    print "Sleeping for %ds" % (pause,)
+    time.sleep(pause)
+
+if __name__ == '__main__':
+    args = {}
+    for arg in sys.argv[1:]:
+        k, v = arg.split('=', 1)
+        if v.isdigit():
+            v = int(v)
+        args[k] = v
+    main(**args)

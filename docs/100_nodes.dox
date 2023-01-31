@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: MIT
+// X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+/**************************************************************************
+ * Nodes page
+ *************************************************************************/
+
+/*! \page nodes Nodes
+
+This section describes the built-in nodes included in SolarCapture.
+
+Node | Description
+---- | ----------------------
+\nodelink{sc_append_to_list}
+\nodelink{sc_arista_ts}
+\nodelink{sc_batch_limiter}
+\nodelink{sc_cpacket_encap}
+\nodelink{sc_cpacket_ts}
+\nodelink{sc_delay_line}
+\nodelink{sc_exit}
+\nodelink{sc_fd_reader}
+\nodelink{sc_fd_writer}
+\nodelink{sc_filter}
+\nodelink{sc_flow_balancer}
+\nodelink{sc_injector}
+\nodelink{sc_line_reader}
+\nodelink{sc_merge_sorter}
+\nodelink{sc_no_op}
+\nodelink{sc_pacer}
+\nodelink{sc_pass_n}
+\nodelink{sc_pcap_packer}
+\nodelink{sc_pool_forwarder}
+\nodelink{sc_ps_packer}
+\nodelink{sc_ps_unpacker}
+\nodelink{sc_range_filter}
+\nodelink{sc_rate_monitor}
+\nodelink{sc_reader}
+\nodelink{sc_repeater}
+\nodelink{sc_rr_gather}
+\nodelink{sc_rr_spreader}
+\nodelink{sc_rt_pacer}
+\nodelink{sc_shm_broadcast}
+\nodelink{sc_shm_export}
+\nodelink{sc_shm_import}
+\nodelink{sc_sim_work}
+\nodelink{sc_snap}
+\nodelink{sc_subnode_helper}
+\nodelink{sc_tap}
+\nodelink{sc_timestamp_filter}
+\nodelink{sc_token_bucket_shaper}
+\nodelink{sc_tracer}
+\nodelink{sc_ts_adjust}
+\nodelink{sc_tunnel}
+\nodelink{sc_tuntap}
+\nodelink{sc_vi_node}
+\nodelink{sc_vss}
+\nodelink{sc_writer}
+
+*/

@@ -1,0 +1,78 @@
+SPDX-License-Identifier: MIT
+X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+Introduction
+============
+
+ The examples in this directory show ways to pass packet buffers between
+ threads managed by SolarCapture and threads managed by the application.
+
+ Every component in SolarCapture has to be associated by an sc_thread
+ object.  By default sc_threads are managed by SolarCapture, which means
+ that SolarCapture will create the underlying OS thread and manage its
+ lifetime etc.  An unmanaged sc_thread is used when you want to use
+ SolarCapture components in a thread created by your application.
+ Unmanaged threads are created by setting the thread attribute 'managed' to
+ 0.
+
+
+unmanaged_mailbox.c
+-------------------
+
+ This is the easiest way to pass packets out of SolarCapture.  Mailboxes
+ are the mechanism SolarCapture uses to pass packets between threads.  To
+ pass packets to an unmanaged thread you just need an unmanaged mailbox.
+
+ Note that a mailbox must be polled in order to receive packets delivered
+ to the mailbox, and it must also be polled regularly to ensure that
+ packets sent through the mailbox reach the remote thread.  ie. Calling
+ sc_mailbox_send(_list) is not sufficient to ensure that packets are
+ delivered to the remote thread.  (This is a consequence of SolarCapture's
+ batching algorithms).
+
+
+unmanaged_thread.c
+------------------
+
+ This example shows how an unmanaged thread can work with other
+ SolarCapture components, including nodes and VIs.  In this example a
+ custom node is used to place packets onto a list, which is drained by the
+ foreground application thread.
+
+ (N.B. The 'deliver' node shown in this example is very similar to the
+ built-in sc_append_to_list node).
+
+ Packets are freed by forwarding them along the 'deliver' node's outgoing
+ link, which is not explicitly connected to anything.  SolarCapture
+ internally sets up a path to return the packets to the packet pool that
+ they originally came from.
+
+ All of the internal SolarCapture activity within the unmanaged thread
+ context is driven from the call to sc_thread_poll().
+
+
+Building the unmanaged examples
+========================================
+
+ To build the applications, run the following command:
+
+   $ make
+
+ Note that by default the example may be installed in a directory
+ where only root has write privileges.  You can either run as root or
+ you can copy the files to another directory.
+
+
+Using unmanaged examples
+=========================
+
+ To run the unmanaged_mailbox built application, run the following command:
+
+ $ ./unmanaged_mailbox <intf>
+
+ Note that you will need root privileges to run the example.
+
+ Similarly, to run unmanaged_thread built application,
+ run the following command:
+
+ $ ./unmanaged_thread <intf>

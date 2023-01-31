@@ -1,0 +1,76 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+me=$(basename "$0")
+bin=$(cd "$(dirname "$0")" && /bin/pwd)
+
+sd_usage_msg() {
+  echo
+  echo "usage:"
+  echo "  $me [options] <command> <command-args>"
+  echo
+  echo "options:"
+  echo "  -l --loglevel        -- set logging level"
+  echo "  -h --help            -- print this usage message"
+  echo
+}
+
+sd_usage_error() {
+  sd_usage_msg >&2
+  exit 1
+}
+
+add_attr() {
+  if [ -n "$SC_ATTR" ]; then
+    SC_ATTR="$SC_ATTR;$1"
+  else
+    SC_ATTR="$1"
+  fi
+  export SC_ATTR
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help)
+      sd_usage_msg
+      exit 0
+      ;;
+    -l|--loglevel)
+      shift
+      add_attr log_level="$1"
+      ;;
+    --loglevel=*)
+      add_attr log_level="${1#--loglevel=}"
+      ;;
+    -l*)
+      add_attr log_level="${1#-l}"
+      ;;
+    -*)
+      sd_usage_error
+      ;;
+    *)
+      break
+      ;;
+  esac
+  shift
+done
+
+[ $# -gt 0 ] || sd_usage_error
+
+SC_DIR=$(cd "$bin/.." && /bin/pwd)
+f="$SC_DIR/src/lib/debug/libsolarcapture0.so"
+if [ -f "$SC_DIR/src/lib/debug/libsolarcapture0.so" ]; then
+  dir="$SC_DIR/src/lib/debug"
+else
+  dir="/usr/lib64/solar_capture/debug:/usr/lib/solar_capture/debug:/usr/lib/x86_64-linux-gnu/solar_capture/debug"
+fi
+
+if [ -n "$LD_LIBRARY_PATH" ]; then
+  LD_LIBRARY_PATH="$dir:$LD_LIBRARY_PATH"
+else
+  LD_LIBRARY_PATH="$dir"
+fi
+export LD_LIBRARY_PATH
+
+exec "$@"

@@ -1,0 +1,124 @@
+// SPDX-License-Identifier: MIT
+// X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+/**************************************************************************
+ * Extending page
+ *************************************************************************/
+ /*! \page extend Extending SolarCapture
+
+SolarCapture defines a coherent API allowing applications to be constructed
+from reusable components known as nodes. The core SolarCapture functionality
+can be extended by implementing new types of nodes in C. An example of how to
+define a new node type can be found at:
+
+`/usr/share/doc/solar_capture-<version>/examples/extensions_api`
+
+Implementations of new node types should include the `<solar_capture.h>`
+header, and should link to the `solarcapture1` library, as shown in the sample
+code.  The header files can be found at:
+
+`/usr/include/solar_capture/`
+
+This chapter describes the objects and concepts needed to create new nodes.
+For more information please refer to the example code, and the other
+documentation in this Guide.
+
+\section extend_node_factories Node factories — struct sc_node_factory
+
+A node factory provides an interface for instantiating new nodes. When a
+node is allocated with sc_node_alloc() or similar, the nf_init_fn() is
+invoked which should initialize the implementation and set the node type.
+Private state for the node implementation can be stored in the nd_private
+field.
+
+The nf_init_fn() can retrieve arguments passed when allocating a node by
+invoking the following functions:
+
+- sc_node_init_get_arg_int()
+- sc_node_init_get_arg_int64()
+- sc_node_init_get_arg_dbl()
+- sc_node_init_get_arg_str()
+- sc_node_init_get_arg_obj()
+
+
+\section extend_node_types Node types — struct sc_node_type
+
+This object defines the behavior of a node via a set of
+callbacks. Implementations must only instantiate objects of this type by
+calling sc_node_type_alloc().  A single node type instance can be shared by
+multiple node instances.
+
+The nt_prep_fn() callback is invoked once per node just before the threads in
+a session are started. The outgoing links configured by the application are
+passed to this function. For nodes where the names of links can be chosen by
+the application, the links array should be inspected directly. Nodes that
+support links with fixed names can use the following functions to find
+their links:
+
+- sc_node_prep_get_link()
+- sc_node_prep_get_link_or_free()
+
+The nt_pkts_fn() callback is invoked when packets arrive at a node. This
+callback provides the core functionality of the node. Packets provided to
+this callback should be forwarded via one of the node’s outgoing links with
+sc_forward() or sc_forward_list(). (Packets do not have to be forwarded
+immediately).
+
+The nt_end_of_stream_fn() callback is invoked when a node has received the
+last packet.  That is, nt_pkts_fn() is never invoked after
+nt_end_of_stream_fn().
+
+
+\section extend_node_libraries Node libraries
+
+A node library is a shared object file that contains one or more
+sc_node_factory instances. Each factory instance must be named
+`<something>_sc_node_factory` so that it can be found by sc_node.
+
+If a node library contains a single factory, it is conventional to give the
+factory and the file matching names so that it is not necessary to name the
+library in the call to sc_node_factory_lookup(). For example, in the
+“reflect” example, the factory instance is `reflect_sc_node_factory`, and
+the library is `reflect.so`.  If a node library is placed in one of the
+directories on the node library lookup path, then it will be found by a
+call to sc_node_factory_lookup(), sc_node_alloc_named() or
+sc_node_alloc_from_str().
+
+The node library lookup path includes the following directories:
+
+- . (The current working directory)
+- Directories identified by the environment variable SC_NODE_PATH
+- /usr/lib64/solar_capture/site-nodes
+- /usr/lib/x86_64-linux-gnu/solar_capture/site-nodes
+- /usr/lib64/solar_capture/nodes
+- /usr/lib/x86_64-linux-gnu/solar_capture/nodes
+
+\note Node factories do not have to be placed in node libraries. They can
+simply be instantiated within an application that embeds SolarCapture and
+be passed directly to sc_node_alloc().  Node libraries are useful when
+nodes are reusable.
+
+
+\section extend_user_defined_node Insert a user-defined node between capture and sc_writer
+
+User-defined nodes can be inserted between the capture node and sc_writer
+node. See the extensions_api sample code for examples included in the
+solar_capture-python RPM.
+
+The following example demonstrates how to insert a user-defined node called
+‘`header_strip`’ into the solar_capture pipeline:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+# SC_NODE_PATH must include directory containing header_strip.so
+export SC_NODE_PATH=/path/to/nodes
+solar_capture eth4=/captures/eth4.pcap header_strip:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following example demonstrates how to pass arguments to the
+‘header_strip’ node:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+solar_capture eth4=/captures/eth4.pcap "header_strip:arg1=foo;arg2=bar"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*/

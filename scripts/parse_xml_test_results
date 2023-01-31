@@ -1,0 +1,57 @@
+#!/usr/bin/python2 -u
+
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+import argparse, os, sys
+import xml.etree.ElementTree as ET
+
+
+class Result(object):
+    def __init__(self, tests=0, fails=0, errors=0, skips=0):
+        self.result = {
+            'tests': tests,
+            'fail': fails,
+            'error': errors,
+            'skip': skips,
+        }
+    def __iadd__(self, other):
+        self.result['tests'] += other.result['tests']
+        self.result['fail']  += other.result['fail']
+        self.result['error'] += other.result['error']
+        self.result['skip']  += other.result['skip']
+        return self
+
+    def __str__(self):
+        return "%(tests)d Tests, %(fail)d FAIL, %(error)d Test Errors, %(skip)d SKIP" % (self.result)
+
+
+def summary(result_file):
+    try:
+        tree = ET.parse(result_file)
+    except Exception as e:
+        sys.stderr.write("Failed to process %s:\n%s\n" % (result_file, (e,)))
+
+    root = tree.getroot()
+
+    results = Result()
+    for test in root.iter('testsuite'):
+        tests  = int(test.attrib['tests'])
+        fails  = int(test.attrib['failures'])
+        skips  = int(test.attrib['skip'])
+        errors = int(test.attrib['errors'])
+        results += Result(tests, fails, errors, skips)
+    return results
+
+
+
+def main(filelist):
+    totals = Result()
+    for f in filelist:
+        if os.stat(f).st_size > 0:
+            totals += summary(f)
+    print totals
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

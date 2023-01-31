@@ -1,0 +1,254 @@
+#!/usr/bin/python2
+
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+import os, sys, time, re, pprint, signal
+
+
+top = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), '..', '..'))
+sys.path.append(os.path.join(top, 'src', 'python'))
+import solar_capture
+
+
+USAGE = """USAGE: pktgen [global-opts] intf [stream-opts] ...
+
+Options:
+  size=CONST | MIN-MAX | rMIN-MAX
+  pps=N[kMG] (packets per second)
+  bw=N[kMG]  (bits per second)
+  n=N[kMG]   (stop after N packets)
+  seq=N      (seqnum of first packet (first 8 bytes of udp or tcp payload) )
+  ctl_script=</path/to/ctl_script>
+  repeat_ctl_script=0|1
+  cpacket=0|1
+
+You may also specify values for named header fields:
+  FIELD      TYPE                    DEFAULT
+  dmac       mac                     00:11:22:33:44:55
+  smac       mac                     00:66:77:88:99:AA
+  eth_type   uint16 (range)          0x0800
+  vlan_id    uint16 (range)          0x123 (only if eth_type==0x8100)
+  ttl        uint8  (range)          0xFF
+  protocol   'tcp', 'udp' or uint8   udp
+  saddr      ipv4 (net/mask)         1.2.3.4
+  daddr      ipv4 (net/mask)         1.2.3.5
+  sport      uint16 (range)          0x1234
+  dport      uint16 (range)          0x5678
+  seqnum     uint32 (range)          0 (only used if protocol == tcp)
+  acknum     uint32 (range)          0 (only used if protocol == tcp)
+
+Fields marked with 'range' can be given a cyclic or random range of values:
+  10-20:         cycle between 10-20 inclusive
+  r0-0xFF:       uniform random distribution in range 0-255 inclusive
+
+Fields marked with 'net/mask' can be given a range using ADDR/PREFIXLEN format:
+  192.168.0.0/24:  cycle between 192.168.0.0 - 192.168.0.255
+  r1.2.0.0/16:    random in range 1.2.0.0 - 1.2.255.255
+"""
+
+_HELP_RANGE = """
+
+  This field may be specified in one of three ways:
+   * "X" - fixed value
+   * "X-Y" - cycle through range (inclusive)
+   * "rX-Y" - random uniform distribution in range (inclusive)
+"""
+
+_HELP_IP_RANGE = """
+
+  This field may be specified in one of three ways:
+   * A.B.C.D - fixed address
+   * A.B.C.D/X - cycle through addresses in this network
+   * rA.B.C.D/X - random uniform distribution of addresses in this network
+"""
+
+_HELP_UNITS = """
+
+  Specify an integer with optional "k", "M" or "G" suffix
+"""
+
+HELP_SIZE = "  Specify packet size." + _HELP_RANGE
+HELP_PPS = "  Transmit at fixed packet rate." + _HELP_UNITS
+HELP_BW = "  Transmit at fixed bandwidth (bits/s)." + _HELP_UNITS
+HELP_N = "  Stop after sending this many packets." + _HELP_UNITS
+HELP_CPACKET = " Encapsulate with cpacket timestamp attached."
+HELP_SEQ = """  All packets have (size permitting) an 8 byte incrementing
+  sequence number at the start of their payload; this
+  specifies the initial value.
+"""
+HELP_CTL_SCRIPT = "  Specify a control script (see solar_replay help text).\n"
+HELP_REPEAT_CTL_SCRIPT = "  Set to 1 to repeat control script indefinitely.\n"
+HELP_DMAC = "  Specify destination MAC address.\n"
+HELP_SMAC = "  Specify source MAC address.\n"
+HELP_ETH_TYPE = "  Specify ethertype." + _HELP_RANGE
+HELP_VLAN_ID = ("  Specify vlan ID (packets are untagged if "
+                "not specified)." + _HELP_RANGE)
+HELP_TTL = "  Specify IP ttl." + _HELP_RANGE
+HELP_PROTOCOL = "  Specify IP protocol ('tcp', 'udp' or uint8).\n"
+HELP_SADDR = "  Specify IP source address." + _HELP_IP_RANGE
+HELP_DADDR = "  Specify IP destination address." + _HELP_IP_RANGE
+HELP_SPORT = "  Layer 4 source port." + _HELP_RANGE
+HELP_DPORT = "  Layer 4 destonation port." + _HELP_RANGE
+HELP_SEQNUM = "  Specify TCP sequence number." + _HELP_RANGE
+HELP_ACKNUM = "  Specify TCP ack number." + _HELP_RANGE
+
+misc_keys = ["ctl_script", "repeat_ctl_script", "n", "cpacket"]
+pktgen_keys = ["size", "pps", "bw", "seq",            # General
+               "dmac", "smac", "eth_type", "vlan_id", # Ethernet header fields
+               "ttl", "protocol", "saddr", "daddr",   # IP header fields
+               "sport", "dport", "seqnum", "acknum"]  # L4 header fields
+
+def handle_n(config, k, v):
+    units = {'k': 10 ** 3, 'M': 10 ** 6, 'G': 10 ** 9}
+    n = 1
+    while v and v[-1] in units:
+        n *= units[ v[-1] ]
+        v = v[:-1]
+    n *= int(v)
+    if n == 1:
+        config.set_key(k, "0")
+    else:
+        config.set_key(k, "-%d" % (n - 1) )
+
+def handle_other_arg(config, k, v):
+    if v is not None:
+        solar_capture.cli.err("Unknown argument %r" % k)
+    def is_interface(s):
+        return (not os.path.isabs(s) and
+                os.path.exists(os.path.join('/sys/class/net', s)))
+    def is_path(s):
+        return os.path.exists(s) or os.access(os.path.dirname(s), os.W_OK)
+    if is_interface(k):
+        config.new_instance(interface=k)
+    elif is_path(k):
+        config.new_instance(filename=k)
+    else:
+        solar_capture.cli.err(
+            "'%s' is not an interface name or option or path is not writable" % k)
+
+
+S = solar_capture.cli.Str
+I = solar_capture.cli.Int
+_args = [
+    S("ctl_script"),
+    solar_capture.cli.Bool("repeat_ctl_script", default=False),
+    solar_capture.cli.Bool("cpacket", default=False),
+    solar_capture.cli.Arg("n", handler=handle_n),
+    S("seq"),
+    S("size"),
+    S("pps"),
+    S("bw"),
+    S("dmac"),
+    S("smac"),
+    S("eth_type"),
+    S("vlan_id"),
+    S("ttl"),
+    S("protocol"),
+    S("saddr"),
+    S("daddr"),
+    S("sport"),
+    S("dport"),
+    S("seqnum"),
+    S("acknum"),
+    ]
+for arg in _args:
+    arg.usage = globals()['HELP_' + arg.name.upper()]
+known_args = dict((a.name, a) for a in _args)
+
+
+class Pipeline:
+    def __init__(self, node=None):
+        self.node = node
+
+    def extend(self, thread, name, **args):
+        node = thread.new_node(name, args=args)
+        if self.node is None:
+            self.node = node
+        else:
+            self.node = self.node.connect(node)
+        return self.node
+
+
+last_stopcock = None
+w_fd = None
+
+def setup_stream(session, stream):
+    global last_stopcock, w_fd
+    gen_thread = session.new_thread()
+    inj_thread = session.new_thread()
+
+    pktgen_args = dict((key, stream[key]) for key in pktgen_keys
+                       if stream[key] is not None)
+    if not ('pps' in pktgen_args or 'bw' in pktgen_args):
+        pktgen_args['pps'] = "1"
+
+    pipeline = Pipeline(gen_thread.new_node('sc_pool_forwarder'))
+    pktgen = pipeline.extend(gen_thread, "sc_pktgen", **pktgen_args)
+    if stream['n'] is not None:
+        pipeline.extend(inj_thread, "sc_range_filter", range=stream['n'])
+    pipeline.extend(inj_thread, "sc_pacer")
+    sc = pipeline.extend(gen_thread, "sc_stopcock")
+
+    if stream['cpacket']:
+        pipeline.extend(gen_thread, "sc_cpacket_encap")
+
+    if 'interface' in stream:
+        inj_args = dict(interface=stream['interface'], csum_ip=1, csum_tcpudp=1)
+        pipeline.extend(inj_thread, "sc_injector", **inj_args)
+    elif 'filename' in stream:
+        pipeline.extend(inj_thread, "sc_writer", filename=stream['filename'])
+    else:
+        assert 0, stream
+
+    pipeline.extend(inj_thread, "sc_exit")
+
+    if stream['ctl_script']:
+        fd = os.open(stream['ctl_script'], os.O_RDONLY)
+        fd_reader = pktgen.thread.new_node(
+            'sc_fd_reader',
+            args = {'fd': fd,
+                    'repeat':stream['repeat_ctl_script']})
+        line_reader = pktgen.thread.new_node('sc_line_reader')
+        fd_reader.connect(line_reader).connect(pktgen, 'controller')
+
+    if last_stopcock:
+        last_stopcock.connect('ctl', sc, 'ctl')
+    else:
+        r_fd, w_fd = os.pipe()
+        sc_fdr = gen_thread.new_node('sc_fd_reader', args={'fd': r_fd})
+        sc_fdr.connect(sc, 'ctl')
+    last_stopcock = sc
+
+
+def main(args):
+    streams = solar_capture.cli.parse_args(args, known_args, USAGE,
+                                           handle_unknown_arg=handle_other_arg)
+    if not streams:
+        solar_capture.cli.usage_error(USAGE)
+
+    session = solar_capture.new_session()
+    for stream in streams:
+        setup_stream(session, stream)
+
+    def signal_handler(signum, frame):
+        global w_fd
+        print "Received signal", signum
+        if w_fd:
+            os.close(w_fd)
+            w_fd = None
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    session.go()
+    while True:
+        time.sleep(10000)
+
+
+if __name__ == '__main__':
+    try:
+        main(sys.argv[1:])
+    except solar_capture.SCError as e:
+        print e
+        sys.exit(1)

@@ -1,0 +1,83 @@
+#! /usr/bin/python2
+
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+# Manual test script for the sc_ps_unpacker node
+#
+# To use packets from a PCAP:
+# ./unpacker pcap=<file>
+#
+# To generate synthetic packets:
+# ./unpacker n=<count> # use -1 for unlimited
+#
+# Other options:
+#   size:      Size of synthetic packets (only with n=<count>)
+#   pps:       Rate of synthetic packets (only with n=<count>)
+#   ps_size:   Size of packed-stream buffers
+#   trace:     Do not trace packets
+#   delay_us:  Delay each post-unpacker packet for this long
+
+import sys, time
+import solar_capture
+
+
+def main(pcap=None, n=None, size=300, pps=1, ps_size=1<<20,
+         trace=0, delay_us=None):
+    assert (pcap or n) and not (pcap and n)
+
+    session = solar_capture.new_session()
+    thread = session.new_thread()
+
+    if pcap:
+        source = thread.new_node('sc_reader', args={'filename': pcap})
+    else:
+        fwd = thread.new_node('sc_pool_forwarder', attr={'buf_size': size})
+        ta = thread.new_node('sc_ts_adjust', args={'start_now': 1,
+                                                   'pps': pps})
+        pacer = thread.new_node('sc_pacer')
+        source = fwd.connect(ta).connect(pacer)
+        if n > 0:
+            rs = ('-%d' % (n - 1,)) if n > 1 else '0'
+            rf = thread.new_node('sc_range_filter', args={'range': rs})
+            source = source.connect(rf)
+
+    packer = thread.new_node('sc_ps_packer', attr={'buf_size': ps_size})
+    unpacker = thread.new_node('sc_ps_unpacker')
+    exiter = thread.new_node('sc_exit')
+
+
+    if trace:
+        t1 = thread.new_node('sc_tracer', attr={'name': 't1'})
+        t2 = thread.new_node('sc_tracer', attr={'name': 't2'})
+        t3 = thread.new_node('sc_tracer', attr={'name': 't3'})
+        source = source.connect(t1)
+        packer = packer.connect(t2)
+        unpacker = unpacker.connect(t3)
+        nodes = [t1, packer, t2, unpacker, t3, exiter]
+    else:
+        nodes = [packer, unpacker, exiter]
+
+    if delay_us:
+        dl = thread.new_node('sc_delay_line', args={'usec': str(delay_us)})
+        nodes.insert(-1, dl)
+
+    x = source
+    for node in nodes:
+        x = x.connect(node)
+
+    session.go()
+    while True:
+        time.sleep(1)
+
+
+if __name__ == '__main__':
+    args = {}
+    for arg in sys.argv[1:]:
+        k, v = arg.split('=', 1)
+        try:
+            v = int(v)
+        except ValueError:
+            pass
+        args[k] = v
+    main(**args)

@@ -1,0 +1,59 @@
+SPDX-License-Identifier: MIT
+X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+Introduction
+============
+
+ This sample shows how to customise the SolarCapture libpcap bindings.
+
+ Normally the SolarCapture libpcap bindings behave in the standard way;
+ capturing packets from a network interface and passing them to the client
+ application.  But it is also possible to configure libpcap to source
+ packets from a custom SolarCapture node.
+
+ This is achieved by setting an interface name that starts with "sc:".  The
+ remainder of the interface name gives a node specification, as defined by
+ the sc_node_alloc_from_str() API call.  Here is an example:
+
+   sc:sc_vi_node:interface=eth4
+
+ In this case the libpcap bindings would instatiate an sc_vi_node and pass
+ it the argument "interface=eth4".
+
+ The sample code in this directory illustrates this feature and solves the
+ following problem: Provide a libpcap application with a sampled subset of
+ the packets arriving at a network interface.
+
+ Libpcap is configured to create a custom node called "sampled" which
+ supplies a random sampling of packets.  The "sampled" node achieves this
+ by creating an sc_vi_node to capture packets, and an sc_filter node to
+ sample them.  The output of the sc_filter node becomes the input to the
+ libpcap application.
+
+ This sample consists of the following parts:
+
+   sampled.c - A custom SolarCapture node which captures packets from a
+               network interface and forwards a sampled subset of the
+               captured packets to its output.
+
+   solar_libpcap_sampled
+             - A script that can be used to invoke an application that uses
+               libpcap.  It sets up the environment so that the "sampled"
+               node is used to supply packets to the libpcap bindings.
+
+
+Compiling
+=========
+
+ On a host that has SolarCapture SDK installed, run make:
+
+   $ make
+
+
+Using
+=====
+
+ The following command line causes tcpdump to see a random sampling of 1%
+ of the packets received on interface "eth4":
+
+   $ ./solar_libpcap_sampled eth4 .01 tcpdump -i eth4

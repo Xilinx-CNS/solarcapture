@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+bin=$(cd $(dirname "$0") && /bin/pwd)
+SC=$(cd "$bin/.." && /bin/pwd)
+
+export LD_LIBRARY_PATH="$SC/src"
+$bin/two_threadsc "$@"

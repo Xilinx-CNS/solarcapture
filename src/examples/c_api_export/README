@@ -1,0 +1,37 @@
+SPDX-License-Identifier: MIT
+X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+Introduction
+============
+
+ This example illustrates how to export content of packets captured with
+ SolarCapture C API for external processing.
+
+ In the scenario there are n threads created and the incoming traffic is split
+ so that each of the threads receives subset of the traffic based on
+ source and destination IP addresses' hash.
+
+ A sample implementation of SolarCapture custom node is provided that perform
+ exporting and splitting of the traffic.
+
+
+Building the extensions examples library
+========================================
+
+ To build the application, run the following command:
+
+   $ make
+
+ Note that by default the example may be installed in a directory
+ where only root has write privileges.  You can either run as root or
+ you can copy the files to another directory.
+
+
+Using extensions examples
+=========================
+
+ To run the built application, run the following command:
+
+ $ ./c_api_export <intf> <n_consumers>
+
+ Note that you will need root privileges to run the example.

@@ -1,0 +1,20 @@
+#! /usr/bin/python2
+
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+import time
+import solar_capture
+
+def main():
+    session = solar_capture.new_session()
+    thread = session.new_thread()
+
+    node = thread.new_node('sc_tunnel', args={'server_port': '9999'})
+
+    session.go()
+    time.sleep(1)
+    print "Session started successfully"
+
+if __name__ == '__main__':
+    main()

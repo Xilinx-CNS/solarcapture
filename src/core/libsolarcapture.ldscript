@@ -1,0 +1,185 @@
+/*
+** SPDX-License-Identifier: MIT
+** X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+*/
+
+
+SOLARCAPTURE_1.0 {
+  global:
+    sc_vi_group_alloc;
+    sc_vi_group_get_session;
+    sc_vi_alloc_from_group;
+    sc_vi_alloc;
+    sc_vi_set_recv_node;
+    sc_vi_get_thread;
+    sc_session_alloc;
+    sc_session_go;
+    sc_thread_alloc;
+    sc_thread_get_session;
+    sc_stream_alloc;
+    sc_stream_free;
+    sc_stream_reset;
+    sc_stream_all;
+    sc_stream_ip_dest_hostport;
+    sc_stream_ip_source_hostport;
+    sc_stream_eth_dhost;
+    sc_stream_eth_vlan_id;
+    sc_vi_add_stream;
+    sc_vi_group_add_stream;
+    sc_node_type_alloc;
+    sc_node_alloc;
+    sc_node_add_link;
+    sc_node_get_thread;
+    sc_node_factory_lookup;
+    sc_join_mcast_group;
+    sc_mailbox_alloc;
+    sc_mailbox_connect;
+    sc_mailbox_set_recv;
+    sc_mailbox_get_send_node;
+    sc_forward;
+    sc_forward_list;
+    sc_node_init_get_arg_int;
+    sc_node_init_get_arg_str;
+    sc_node_prep_get_link;
+    sc_node_prep_get_link_or_free;
+    sc_node_prep_check_links;
+    sc_attr_alloc;
+    sc_attr_free;
+    sc_attr_reset;
+    sc_attr_set_int;
+    sc_attr_set_str;
+    sc_attr_set_from_str;
+    sc_attr_dup;
+  local:
+    *;
+};
+
+
+SOLARCAPTURE_1.1 {
+  global:
+    __sc_node_set_error;
+    __sc_node_fwd_error;
+    sc_node_prep_get_pool;
+    sc_node_init_get_arg_obj;
+    sc_node_init_get_arg_dbl;
+    sc_pool_get_packets;
+    sc_pool_on_threshold;
+    sc_pool_duplicate_packet;
+    sc_callback_alloc;
+    sc_callback_free;
+    sc_pkt_predicate_alloc;
+    sc_pkt_predicate_to_object;
+    sc_pkt_predicate_from_object;
+    sc_timer_expire_at;
+    sc_timer_expire_after_ns;
+    sc_timer_push_back_ns;
+    sc_timer_get_expiry_time;
+    sc_iovec_ptr_skip;
+    sc_iovec_ptr_find_chr;
+    sc_node_alloc_named;
+    sc_callback_on_idle;
+    sc_node_link_end_of_stream;
+    sc_packet_append_iovec_ptr;
+    sc_mailbox_poll;
+    sc_mailbox_send;
+    sc_mailbox_send_list;
+    sc_thread_get_time;
+    sc_thread_calloc;
+    sc_thread_mfree;
+    sc_node_export_state;
+    sc_montype_constant;
+    sc_montype_struct;
+    sc_montype_field;
+    sc_montype_struct_end;
+    sc_montype_flush;
+    sc_stream_eth_shost;
+    sc_stream_eth_type;
+    sc_stream_ip_dest_host;
+    sc_stream_ip_dest_port;
+    sc_stream_ip_source_host;
+    sc_stream_ip_source_port;
+    sc_stream_ip_protocol;
+    sc_object_type;
+} SOLARCAPTURE_1.0;
+
+
+SOLARCAPTURE_1.2 {
+  global:
+    sc_pool_return_packets;
+    sc_opaque_alloc;
+    sc_opaque_free;
+    sc_opaque_set_ptr;
+    sc_opaque_get_ptr;
+    sc_stream_set_str;
+    sc_thread_poll;
+    sc_node_add_info_str;
+    sc_node_add_info_int;
+} SOLARCAPTURE_1.1;
+
+
+SOLARCAPTURE_1.3 {
+  global:
+    sc_attr_doc;
+    sc_session_error_get;
+    sc_session_error_free;
+    __sc_stream_extract_mcast_group;
+    __sc_stream_extract_vlan_id;
+    sc_vi_get_interface_name;
+    sc_session_prepare;
+    sc_session_pause;
+} SOLARCAPTURE_1.2;
+
+
+SOLARCAPTURE_1.4 {
+  global:
+    sc_node_init_get_arg_int64;
+    sc_attr_to_object;
+    sc_attr_from_object;
+    sc_node_to_object;
+    sc_node_from_object;
+    sc_pool_to_object;
+    sc_pool_from_object;
+    sc_forward2;
+    sc_forward_list2;
+    sc_node_link_end_of_stream2;
+    sc_iovec_ptr_copy_out;
+    sc_attr_set_from_fmt;
+    sc_subnode_helper_request_callback;
+    sc_node_prep_does_not_forward;
+    sc_node_prep_link_forwards_from_node;
+    sc_pool_set_refill_node;
+    sc_pool_wraps_node;
+    sc_hash_table_alloc;
+    sc_hash_table_free;
+    sc_hash_table_get;
+    sc_hash_table_del;
+    sc_hash_table_del_value;
+    sc_hash_table_clear;
+    sc_hash_table_val_to_key;
+    sc_hash_table_key_size;
+    sc_hash_table_entry_size;
+    sc_hash_table_num_entries;
+    sc_hash_table_get_next_entry;
+} SOLARCAPTURE_1.3;
+
+
+SOLARCAPTURE_1.5 {
+  global:
+    sc_node_alloc_from_str;
+    sc_pool_get_buffer_size;
+    sc_callback_alloc2;
+    sc_callback_set_description;
+    __sc_node_set_errorv;
+    sc_thread_poll_timers;
+    sc_thread_waitable_fd_get;
+    sc_thread_waitable_fd_prime;
+    sc_pool_duplicate_packed_packet;
+} SOLARCAPTURE_1.4;
+
+
+SOLARCAPTURE_1.6 {
+  global:
+    sc_session_destroy;
+    sc_session_run;
+    sc_session_stop;
+} SOLARCAPTURE_1.5;

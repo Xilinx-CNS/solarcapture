@@ -1,0 +1,1241 @@
+#!/usr/bin/python2
+'''
+SPDX-License-Identifier: MIT
+X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+'''
+
+import sys, time, os, copy, re, signal, pwd, errno, subprocess, select, shlex
+
+top = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), '..'))
+if os.path.exists(os.path.join(top, 'src', 'python', 'solar_capture')):
+    sys.path.insert(0, os.path.join(top, 'src', 'python'))
+
+import solar_capture as sc
+
+
+vi_attributes = {
+    # cl-option-name          vi-attribute-name
+    'rx_ring_max'           : 'rx_ring_max',
+    'poll_batch'            : 'poll_batch',
+    'rx_refill_batch_high'  : 'rx_refill_batch_high',
+    'rx_refill_batch_low'   : 'rx_refill_batch_low',
+    'rx_ring_low'           : 'rx_ring_low',
+    'rx_ring_high'          : 'rx_ring_high',
+    'buffers'               : 'n_bufs_rx',
+    'capture_buffer'        : 'pool_size',
+    'discard_i'             : 'discard_mask',
+    'mode'                  : 'capture_mode',
+    'snap'                  : 'hw_snap',
+    'capture_point'         : 'capture_point',
+    'cluster'               : 'cluster',
+    'promiscuous'           : 'promiscuous',
+    'strip_fcs'             : 'strip_fcs',
+    }
+
+
+usage_text = '''
+Usage:
+  solar_capture [global-options] <capture>...
+
+capture:
+  interface=ethX output=/path/to/output.pcap [instance-options]
+  interface=ethX output_shm=/path/to/shm [instance-options]
+
+The options below can be specified as either global or instance options.
+Global options apply to all captures; instance options apply only to a single
+capture instance. Instance options override global options.
+
+options:
+  join_streams        ';' separated list of streams to join and capture.
+  streams             ';' separated list of streams to capture.
+  join_mcasts         ';' separated list of multicast groups to join.
+  capture_cores       List of cores to capture on.
+  writeout_core       Which core to use for capture file write-out.
+  format              Packet capture file format.
+  rotate_seconds      Capture file rotation (like tcpdump -G).
+  rotate_file_size    Capture file rotation (like tcpdump -C).
+  packet_count        Stop capture after receiving N packets
+  filter              BPF filter string (software filtering).
+  arista_ts           Use Arista hardware timestamps.
+  cpacket_ts          Use CPacket hardware timestamps.
+  snap                Max bytes from each packet to store to capture file.
+  append              Set to 1 to append to capture file (otherwise truncate).
+  write_mode          Choose between fast (default) and safe (for concurrent access).
+  on_write_error      Set to exit (default), abort, message or silent.
+  mode                Set to steal (default) or sniff.
+  capture_point       Specifies which datapath to capture.
+  cluster             Name of application cluster to join.
+  discard             List of packet errors that should be discarded.
+  rx_ring_max         Maximum fill level for RX descriptor rings.
+  capture_buffer      Amount of buffering per capture interface.
+  writeout_buffer     Amount of buffering per disk writer.
+  promiscuous         Control whether promiscuous mode is enabled.
+  user                Drop privileges to specified user name.
+  ptp                 Set to 1 to not capture IGMP because PTP is in use.
+  capture_busy_wait   Set to 1 to busy wait in capture thread(s), 0 to block.
+  writeout_busy_wait  Set to 1 to busy wait in writeout thread, 0 to block.
+  strip_fcs           Specifies whether received frames contain ethernet FCS.
+  config_file         Config file containing extra solar_capture arguments.
+  output_shm          Deliver captured packets to shared memory channel.
+  shm_fanout          Maximum number of consumers for shared memory channels
+  postrotate_command  Command to execute for each file that is closed on rotation
+  partial_suffix      Suffix to add to filename of partially written files.
+  <extension>         Add optional processing step into pipeline.
+
+advanced tuning options:
+  poll_batch
+  rx_refill_batch_low
+  rx_refill_batch_high
+  rx_ring_low
+  rx_ring_high
+
+extension:
+  "<name>:[extension-options]"
+  "<name>:nodelib=/path/to/lib.so;[extension-options]"
+
+Help:
+  solar_capture --help or -h    display this help
+  solar_capture --version or -v display the version number
+  solar_capture help <option>   more information on an option
+  solar_capture help all        more information on all options
+
+Examples:
+  # Capture all packets on eth2 using cpu cores 1 and 2.
+  solar_capture interface=eth2 output=eth2.pcap capture_cores=1 writeout_core=2
+
+  # Capture whole packets on eth2, and headers on eth3.
+  solar_capture interface=eth2 output=eth2.pcap snap=0 \\
+                interface=eth3 output=eth3.pcap snap=60
+
+  # Deliver packets arriving at eth2 to shared memory channel.
+  solar_capture interface=eth2 output_shm=/mnt/htlbfs/eth2.shm
+'''
+
+
+HELP_JOIN_STREAMS = '''\
+  Use this option to select streams of packets to capture, and also
+  join any multicast groups specified in those streams.
+
+  This option uses the same format as the 'streams' option and is a
+  shortcut for using both 'streams' and 'join_mcasts' options.  See
+  the descriptions of those options for more detail.
+'''
+
+HELP_STREAMS = '''\
+  Specify streams of packets to be captured.  This option is set to a
+  list of streams separated by ';'.  Streams may be specified using two
+  formats, abbreviated or full.
+
+  Abbreviated syntax is:
+    {udp,tcp}:[vid=<vlan>,]<local-host>:<local-port>
+    {udp,tcp}:[vid=<vlan>,]<local-host>:<local-port>,<remote-host>:<remote-port>
+    eth:[vid=<vlan>,]<local-mac>
+
+  Hosts may be specified as host names or IPv4 addresses.
+
+  Full syntax is a series of comma-separated key=value pairs, plus a few
+  special values:
+    all   (capture all traffic)
+    mismatch (capture all mismatch traffic)
+    ip    (shortcut for eth_type=ip)
+    tcp   (shortcut for ip_protocol=tcp)
+    udp   (shortcut for ip_protocol=udp)
+    vid=INT
+    eth_type=ip|INT
+    dmac=MAC
+    smac=MAC
+    dhost=IP4_ADDR|HOSTNAME
+    shost=IP4_ADDR|HOSTNAME
+    ip_protocol=tcp|udp|INT
+    sport=INT
+    dport=INT
+
+  The IP-specific options all implicitly set eth_type=ip.  Integers must be
+  given in decimal.
+
+  For example, if we're capturing RX traffic these are equivalent:
+
+    streams="udp:192.168.1.1:20019;eth:00:0F:53:0C:03:89"
+    streams="udp,dhost=192.168.1.1,dport=20019;dmac=00:0F:53:0C:03:89"
+
+  If neither the 'streams' option nor 'join_streams' option are
+  specified, then all packets arriving at an interface are captured.
+
+  The combinations of header fields that can be used to specify a stream
+  depend on the type of adapter, the firmware version and the firmware
+  variant.  See the SolarCapture User Guide for more detail.
+
+  Some adapters are not able to filter TCP and UDP streams by VLAN-ID.  On
+  such adapters the VLAN specification is ignored for capture, but is used
+  for the purposes of joining multicast groups (join_streams).
+
+  Note the quoting needed to prevent the shell from interpreting the ';'
+'''
+
+
+HELP_JOIN_MCASTS = '''\
+  By default, solar_capture will not join any multicast groups.  If
+  the machine is behind a switch that forwards traffic based on IGMP
+  membership, use this option to direct traffic to the interface.
+
+  The format is list of items separated by ';'.  Each item can have the
+  following forms:
+
+    vid=VLAN_ID                           - set VLAN ID for following items
+    intf=INTERFACE                        - set interface for following items
+    [vid=VLAN_ID,][intf=INTERFACE,]GROUP  - join this GROUP
+
+  For example (assuming the capture interface ethX):
+
+    # Join 239.0.0.1 and 239.0.0.2 on ethX, and 239.1.2.3 on ethX.23
+    join_mcasts="239.0.0.1;239.0.0.2;vid=23,239.1.2.3"
+
+    # Join specified groups, all on ethX.23
+    join_mcasts="vid=23;239.0.0.1;239.0.0.2;239.0.0.3"
+
+    # Join specified groups on bond0 (ethX is a member of bond0)
+    join_mcasts="intf=bond0;239.0.0.1;239.0.0.2;239.0.0.3"
+'''
+
+
+HELP_DISCARD = '''\
+  This option controls whether packets with errors are captured or
+  discarded.  Specify a comma-separated list of the errors that should
+  cause a packet to be discarded rather than captured.
+
+    CSUM               IP, UDP or TCP checksum failed
+    CRC                Ethernet CRC failed
+    UCAST_MISMATCH     Unicast mismatch
+    MCAST_MISMATCH     Multicast mismatch
+    NONE               Does not cause any packets to be discarded, for use
+                       on an interface where no packets should be discarded
+                       but the default option has been set to discard.
+
+  Example:
+
+    discard=CRC,CSUM
+
+  By default, all packets are captured.
+'''
+
+
+HELP_CAPTURE_CORES = '''\
+  This option controls which core or cores capture threads run on. Specify
+  a comma-separated list of cores to use for this capture.
+
+  By default a single thread is created for all captures where a specific
+  core is not requested.
+
+  If multiple cores are specified with this option then capture is
+  distributed over multiple threads.  Received packets are distributed over
+  the capture threads using the receive-side scaling (RSS) algorithm, which
+  selects a thread using a hash computed over IP addresses and port
+  numbers.
+
+  Note that due to RSS restrictions on 5XXX and 6XXX series NICs, the
+  requested number of capture cores cannot exceed the requested number of
+  RSS cores and requested number of capture cores must be a power of 2.
+'''
+
+
+HELP_WRITEOUT_CORE = '''\
+  This option controls which cpu core capture write-out will run on.
+
+  By default a single thread is created for write-out and is not affinitised.
+'''
+
+
+HELP_FORMAT = '''\
+  Format for capture files.  Supported formats:
+
+    pcap
+    pcap-ns
+'''
+
+
+HELP_ROTATE_SECONDS = '''\
+  If nonzero, creates a new capture file after the given number of seconds.
+  This is similar to the -G option to tcpdump.
+
+  The file name given with output= should include a time format as defined
+  by strftime(3).
+'''
+
+
+HELP_ROTATE_FILE_SIZE = '''\
+  If nonzero, creates a new capture file whenever the previous file exceeds
+  the specified size.  The units of file size are bytes.  This is similar
+  to the -C option to tcpdump.
+
+  The file name provided with output= should include the string '$i' which
+  is replaced by an incrementing index.  If rotate_seconds is also used then
+  the index is reset to zero after each time-based rotation.
+'''
+
+
+HELP_FILTER = '''\
+  This option is used to setup software filtering.  The argument is a
+  filter specification conforming to the Berkeley Packet Filter (BPF)
+  specification.  Packets that do not match the filter specification are
+  discarded.
+'''
+
+
+HELP_ARISTA_TS = '''\
+  This option causes SolarCapture to use hardware timestamps from an Arista
+  switches, the switch is assumed to be a 7150 unless switch_model specifies
+  a different switch.
+  7150 switches may be configured in before-fcs or replace-fcs mode.
+  When using replace-fcs you must also set strip_fcs=0, so that timestamps are
+  now stripped by the adapter.
+  7280 switches may be configured with 48bit or 64bit timestamps formats.
+  By default timestamps will be encapsulated in an L2 header. In 48bit format
+  variant there is an option to replace the ethernet header's source MAC field
+  with the timestamp, instead of adding an L2 header. When a 7280 switch is
+  configured with this option you must set ts_src_mac=1 and strip_ticks=0.
+
+  This option has the following syntax:
+
+    arista_ts=[arguments]
+
+  The arguments take the form key=value, and are separated by ';'.  There are
+  several Arista switch timestamping protocols that SolarCapture can decode.  The
+  arguments available depend on which switch's timestamps to decode.
+
+  Arguments available in all cases:
+    switch_model       - Switch series of timestamps to decode, 7150 or 7280 (default 7150)
+    strip_ticks        - Strip Arista timestamp (default 1, set 0 to disable)
+
+  Arguments available if switch_model=7150:
+    ts_mode            - 'before-fcs', 'replace-fcs'
+    kf_ip_dest         - IP address used for keyframes (compulsory)
+    kf_eth_dhost       - Dest mac for keyframes (compulsory if kf_ip_dest is
+                           not a multicast address)
+    kf_device          - Use keyframes matching specified 'device' field
+    no_sync_drop       - Set to 1 to drop packets without accurate timestamps
+    drop_sync_on_skew  - Set to 1 to drop synchronisation on bad timestamp
+    log_level          - 'silent', 'errors', 'setup', 'sync' or 'verbose'
+
+  Arguments available if switch_model=7280:
+    ts_format          - Timestamp format to decode, 48bit or 64bit (default 48bit)
+
+  Arguments available if switch_model=7280 and ts_format=48bit:
+    ts_src_mac           - Set to 1 if timestamp is located in source mac field
+    replacement_src_mac  - MAC address to replace timestamp with (if ts_src_mac=1).
+                           Defaults to no replacement if not set.
+
+  Arguments available if switch_model=7280 and ts_format=64bit:
+    rollover_window_ms - Window to check packets for 7280 rollover bug (default 1000)
+
+  Examples:
+
+    arista_ts="kf_ip_dest=224.6.46.4"
+    arista_ts="switch_model=7150;kf_ip_dest=10.1.2.3;kf_eth_dhost=02:23:0a:01:02:03"
+    arista_ts="switch_model=7280;ts_format=48bit"
+    arista_ts="switch_model=7280;ts_format=48bit;ts_src_mac=1;strip_ticks=0"
+    arista_ts="switch_model=7280;ts_format=48bit;ts_src_mac=1;strip_ticks=0;\\
+               replacement_src_mac=aa:bb:cc:dd:ee:ff"
+    arista_ts="switch_model=7280;ts_format=64bit;strip_ticks=0;rollover_window_ms=500"
+
+  Note 1: If you have not configured solar_capture to capture all packets,
+  or if multiple capture cores are used, then this option will add a
+  mac-based stream filter to capture keyframes.  The stream filter will
+  also match any non-keyframe packets with the same destination mac
+  address, and those packets will also be captured.
+
+  Note 2: When used in conjunction with multiple capture cores, this option
+  uses packet replication to send copies of keyframes to each capture VI.
+  This only works on adapters that support replication.
+
+  Note 3: Packets that originate at the switch, such as LLDP packets, have
+  a zero switch timestamp.  LLDP packets will be stored with the timestamp
+  assigned by SolarCapture.  Other packets originating at the switch will
+  often be stored with an incorrect timestamp because SolarCapture cannot
+  reliably detect which packets originate at the switch.
+
+  Note 4: The old syntax (sc_arista_ts:...) will continue to work as
+  before, but does not add filters to capture keyframes, and will not work
+  if keyframes are not included in the set of packets captured.
+
+  Note 5: When switch_model=7150 if ts_mode is not specified, then before-fcs
+  mode is assumed when strip_fcs=1 and replace-fcs is assumed when strip_fcs=0.
+
+  Note 6: For switch_model=7280 64bit timestamps format is DEPRECATED.
+'''
+
+
+HELP_CPACKET_TS = '''\
+  This option causes SolarCapture to use hardware timestamps from a CPacket
+  timestamp source.
+
+  This option has the following syntax
+
+    cpacket_ts=[arguments]
+
+  The arguments take the form key=value, and are separated by ';'.
+  These arguments are supported:
+
+    keep_cpacket_footer - (defaults to 0, false) set to 1 to include the entire
+                          cpacket footer in the capture file (otherwise strip it)
+    is_metamako         - (defaults to 0, false) set to 1 if cpacket footer has
+                          Arista-Metamako TLV extensions
+
+  Examples:
+
+    cpacket_ts
+
+    cpacket_ts="keep_cpacket_footer=1"
+
+    strip_fcs=0 cpacket_ts="keep_cpacket_footer=1"
+
+    cpacket_ts="is_metamako=1"
+
+    strip_fcs=0 cpacket_ts="keep_cpacket_footer=1;is_metamako=1"
+
+  Note: CPacket decode respects the strip_fcs option. Each CPacket footer
+  includes the old FCS of the packet that it was applied to, making it possible
+  to preserve the FCS or the CPacket footer independently.
+
+  keep_cpacket_footer strip_fcs result
+            0             0     Old (pre CPacket) FCS in capture file
+            1             0     Entire CPacket footer (including old FCS) and
+                                new FCS in capture file
+            0             1     No FCS nor CPacket footer in capture file
+            1             1     CPacket footer (including old FCS), but no
+                                new FCS in capture file
+'''
+
+
+HELP_SNAP = '''\
+  Maximum number of bytes to write to the capture file from each packet.
+
+  Set to 0 to capture whole packets.
+'''
+
+
+HELP_APPEND = '''\
+  Set to 1 to append to the capture file, or to 0 to truncate.
+'''
+
+
+HELP_WRITE_MODE = '''\
+  This option sets the writeout mode. The options are:
+
+    fast            - set for best performance (default)
+    safe            - set if concurrent access to the file is required
+
+  With the 'fast' option, SolarCapture may use O_DIRECT and preallocate extents
+  for files. It is not safe to mix O_DIRECT and cached access to files.
+
+  With the 'safe' option, concurrent access to the file will work. Note that if
+  you access the file before it is closed, the last packet in the file may be
+  incomplete.
+'''
+
+
+HELP_ON_WRITE_ERROR = '''\
+
+  Controls behaviour when an error is encountered when opening or writing
+  to capture files.  The options are:
+
+    exit            - print error message and exit (default)
+    abort           - print error message and abortive exit
+    message         - print error message and carry on
+    silent          - no error message and carry on
+
+  With the 'message' and 'silent' options SolarCapture will resume writing
+  packets to the output file only once it successfully opens a new capture
+  file, and as such are only useful with the rotate_seconds option.
+'''
+
+
+HELP_MODE = '''\
+  This option controls whether packets captured by this solar_capture
+  process are also received by the host network stack or other capture
+  processes.  The options are:
+
+    steal     - captured packets are not received by the host (default)
+    sniff     - captured packets are also received by the host
+'''
+
+
+HELP_PROMISCUOUS = '''\
+  This option controls whether promicuous mode is enabled when
+  solar_capture is capturing packets with mode sniff.
+
+    1         - all packets received at the capture port are captured
+    0         - only packets that would arrive at the host are captured
+'''
+
+
+HELP_CAPTURE_POINT = '''\
+  This option controls which datapath we capture traffic from. The
+  supported values vary depending on hardware.
+
+    ingress     - capture traffic being received by this host (default)
+    egress      - capture traffic being sent by this host
+
+  Default: ingress (where supported)
+'''
+
+
+HELP_CLUSTER = '''\
+  This option can be used to specify the name of an application cluster to
+  join.
+'''
+
+HELP_RX_RING_MAX = '''\
+  Sets the maximum fill level for receive descriptor rings.
+
+  A larger ring size helps to absorb large bursts of packets at very high
+  rate if the capture thread is not able to keep up.  However, larger ring
+  sizes also increase the working set size, which can reduce efficiency.
+'''
+
+
+HELP_RX_REFILL_ALGORITHM = '''\
+  Each time around the polling loop a capture thread performs the following
+  steps:
+
+  Firstly it polls for notifications from the network adapter indicating
+  sends and receives that have completed.  It handles at most poll_batch
+  notifications per iteration.
+
+  Secondly it attempts to post a batch of packet buffers to each RX ring.
+  No buffers are posted if the ring is full or the pool of buffers is
+  empty.  The size of the batch depends on the fill level of the ring.
+
+  When the fill level of the ring rises above rx_ring_high, the refill
+  batch size is set to rx_refill_batch_high.  When the fill level falls
+  below rx_ring_low the batch size is set to rx_refill_batch_low.
+
+  The defaults are set so that when the capture thread is overloaded
+  (ie. packets are arriving faster than they are being processed) the ring
+  fill level will fall and will oscillate between rx_ring_low and
+  rx_ring_high.  This allows the software to detect that it is falling
+  behind, and also reduces the working set size, which generally improves
+  efficiency.
+
+  When the capture thread is keeping up, the RX ring will fill until it
+  reaches the limit set by rx_ring_max.
+'''
+
+
+HELP_POLL_BATCH = '''\
+  The maximum number of completion notifications to handle in each polling
+  loop.
+
+  It is not usually necessary to change this from the default.
+'''
+
+
+HELP_RX_REFILL_BATCH_HIGH = '''\
+  This parameter influences the RX ring refill algorithm.  For more
+  information see 'rx_refill_algorithm'.
+'''
+
+
+HELP_RX_REFILL_BATCH_LOW = '''\
+  This parameter influences the RX ring refill algorithm.  For more
+  information see 'rx_refill_algorithm'.
+'''
+
+
+HELP_RX_RING_LOW = '''\
+  The RX ring low threshold.  This parameter influences the RX ring refill
+  algorithm.  For more information see 'rx_refill_algorithm'.
+
+  The option is given as a percentage.  Range: 0 - 100.
+'''
+
+
+HELP_RX_RING_HIGH = '''\
+  The RX ring high threshold.  This parameter influences the RX ring refill
+  algorithm.  For more information see 'rx_refill_algorithm'.
+
+  The option is given as a percentage.  Range: 0 - 100.
+'''
+
+
+HELP_CAPTURE_BUFFER = '''\
+  Set the amount of buffering allocated per capture interface.  This option
+  is given in bytes.  The value can use a size suffix (KiB, MiB, GiB).
+
+  Packet buffers store packets that have been received from the
+  network but not yet written out to the capture file.  They provide
+  buffering between capture threads and write-out threads, and are
+  important when packets are arriving at a higher rate than they can
+  be written out to the capture file.
+
+  Configuring a large amount of buffering allows solar_capture to capture
+  a large burst of packets at high rate without any loss, but consumes
+  more memory.
+'''
+
+
+HELP_BUFFERS = '''\
+  Set the number of packet buffers allocated per capture interface.
+
+  This cannot be specified if capture_buffer is set.
+
+  WARNING: This option is deprecated. capture_buffer should be used
+  instead.
+'''
+
+
+HELP_WRITEOUT_BUFFER = '''\
+  Set the amount of buffering allocated per writer. This option is given
+  in bytes.  The value can use a size suffix (KiB, MiB, GiB).
+
+  Write-out buffers store aligned data ready to write to disk. They provide
+  buffering in the write-out thread.  When asynchronous I/O is in use, these
+  provide a more efficient alternative to setting a large capture_buffer.
+  When asynchronous I/O is disabled, bursts may result in drops even if
+  this is set to a high value, and capture_buffer should be used instead.
+'''
+
+
+HELP_USER = '''\
+  If root, drop privileges to this user name after performing operations
+  that require root (such as filter install).  The group ID is set to the
+  primary group of the specified user.
+
+  NOTE: Because this option applies to the entire process, it must be
+        specified as a global option, i.e. it must precede any captures
+        on the command line or in the config file.
+'''
+
+
+HELP_PTP = '''\
+  Set to 1 if you are using PTP on the capture interface, and capturing
+  all traffic on that interface.
+
+  If this is set to 1 then SolarCapture will insert additional filters
+  to direct IGMP to groups 224.0.0.1, 224.0.0.22, 224.0.0.107 and
+  224.0.1.129 via the kernel.  This means that traffic to these groups
+  will not be captured.  In addition, because these filters are added
+  as MAC filters they will affect all multicast groups with the same
+  bottom 24 bits, that is [224-239].0.0.1 etc, so traffic to groups other
+  than those for IGMP and PTP may also not be captured.
+'''
+
+
+HELP_PACKET_COUNT = '''\
+  Stop after capturing N packets. This option applies on a per-capture
+  basis; each capture will stop after receiving the specified number of
+  packets, and solar_capture itself will exit once all captures have
+  stopped.
+'''
+
+
+HELP_CAPTURE_BUSY_WAIT = '''\
+  Set to 0 to disable busy waiting.
+
+  Using busy waiting will generally offer the best performance, and will give
+  the best timestamp accuracy.  However, this this may not offer the most
+  efficient use of cpu resources and will increase power consumption.
+'''
+
+
+HELP_WRITEOUT_BUSY_WAIT = '''\
+  Set to 1 if you want your writeout thread to busy wait.
+
+  Using busy waiting will avoid capture threads having to wake writeout threads,
+  so may offer better performance.  This comes at the cost of less efficient
+  use of cpu resources.
+'''
+
+
+HELP_STRIP_FCS = '''\
+  This option controls whether or not the Ethernet frame check (FCS) is
+  stripped from received packets, or preserved.
+
+  On 7xxx and later series NICs the option is available to not strip the
+  FCS from received packets.  This setting is per-port and is configured
+  via /sys/class/net/<interface>/device/forward_fcs.
+
+  By default solar_capture will accept however the interface is currently
+  configured (strip_fcs=-1).  If you require the capture to be performed
+  without stripped FCS then set strip_fcs=0.  If you require the capture to be
+  performed with stripped FCS then set strip_fcs=1.
+
+  solar_capture cannot change the NIC configuration, so it is an error to
+  specify a strip_fcs value that is incompatible with the NIC
+  configuration.
+'''
+
+
+HELP_INTERFACE = '''\
+  Specify a network interface or cluster to capture on.
+
+  interface= marks the start of a capture instance.  Each capture instance
+  consists of packet capture, optionally some filtering and processing, and
+  output to a file (output=) or shared memory channel (output_shm=).
+'''
+
+
+HELP_OUTPUT = '''\
+  Specify the name of the output file(s) that captured packets are to be
+  written to.
+
+  When using file rotation, the file name may contain special patterns that
+  are replaced to form the final file names.  See rotate_seconds and
+  rotate_file_size.
+'''
+
+
+HELP_OUTPUT_SHM = '''\
+  Specify the path for a SolarCapture shared memory channel that captured
+  packets are to be delivered into.  Separate applications can then use an
+  sc_shm_import node to consume packets captured by solar_capture.
+
+  If using packed-stream mode then the path given must be on a hugetblfs
+  filesystem.  (This will likely improve performance even when not using
+  packed-stream mode).
+'''
+
+
+HELP_SHM_FANOUT = '''\
+  Specify the maximum number of shared memory consumers that can connect to
+  a capture instance.
+
+  This option has no effect if output_shm= is not set.
+'''
+
+HELP_POSTROTATE_COMMAND = '''\
+  Used with rotate_seconds or rotate_file_size, this will run the specified
+  command for each file after it is closed.  In the command string provided,
+  "$F" will be replaced with the filename.
+'''
+
+
+HELP_PARTIAL_SUFFIX = '''\
+  This option can be set to override the suffix added to the filenames of
+  files while they are partially written.
+
+  By default a suffix is added when file rotation is enabled, and the
+  default suffix is ".partial".
+'''
+
+
+def handle_user(config, k, v):
+    if config.instances:
+        sc.cli.err("'user' can not be applied to an interface. "
+                   "It must be used as global option'")
+    config.set_key(k, v)
+
+
+def handle_interface(config, k, v):
+    config.new_instance(interface=v)
+
+
+def handle_capture_cores(config, k, v):
+    config.set_key(k,v and map(sc.cli.int32, re.split('[,;]', v)) or [None])
+
+
+def handle_discard(config, k, v):
+    v = v and v.split(',') or []
+    config.set_key('discard_i', sc.discard_mask_list_to_int(v))
+
+
+def handle_postrotate(config, k, v):
+    if "$F" not in v:
+        sc.cli.err("postrotate_command must have a filename specifier ($F)")
+    config.set_key(k, v)
+
+
+def split_sc(config, k, v):
+    config.set_key(k, [word for word in v.split(';') if word])
+
+
+def handle_help_topic(config, k, v):
+    sc.cli.err("%s is a help topic but not a command-line option" % k)
+
+
+def handle_strip_fcs(config, k, v):
+    assert k == 'strip_fcs'
+    v = int(v)
+    if v < -1 or v > 1:
+        sc.cli.err('Unknown value for strip_fcs. Please supply -1, 0 or 1.')
+    config.set_key(k, v)
+
+
+def handle_other_arg(config, k, v):
+    if v is None: # unknown arg without "=foo" suffix
+        sc.cli.err("Unparsable argument %r" % k)
+    # This handles the old-style "interface=output" syntax.
+    config.new_instance(interface=k, output=v)
+
+
+_args = [
+    sc.cli.Str("format", default="pcap"),
+    sc.cli.Arg("streams", split_sc, repeatable=1, default=[]),
+    sc.cli.Arg("join_streams", split_sc, repeatable=1, default=[]),
+    sc.cli.Arg("join_mcasts", split_sc, repeatable=1, default=[]),
+    sc.cli.Arg("discard", handle_discard, default=[]),
+    sc.cli.Arg("capture_cores", handle_capture_cores, default=[None]),
+    sc.cli.Uint("rotate_seconds", default=0),
+    sc.cli.Uint("rotate_file_size", default=0),
+    sc.cli.Str("filter"),
+    sc.cli.Str("arista_ts"),
+    sc.cli.Str("cpacket_ts"),
+    sc.cli.Int("writeout_core"),
+    sc.cli.Uint("snap", default=0),
+    sc.cli.Bool("append", default=0),
+    sc.cli.Str("write_mode", default="fast"),
+    sc.cli.Bool("sync_on_close", default=0, hidden=True),
+    sc.cli.Str("on_write_error", default="exit"),
+    sc.cli.Str("mode", default="steal"),
+    sc.cli.Str("capture_point"),
+    sc.cli.Str("cluster"),
+    sc.cli.Uint("rx_ring_max"),
+    sc.cli.Uint("poll_batch"),
+    sc.cli.Uint("rx_refill_batch_high"),
+    sc.cli.Uint("rx_refill_batch_low"),
+    sc.cli.Uint("rx_ring_low"),
+    sc.cli.Uint("rx_ring_high"),
+    sc.cli.Posint("buffers"),
+    sc.cli.Str("capture_buffer"),
+    sc.cli.Str("writeout_buffer", default="160MiB"),
+    sc.cli.Int("promiscuous", default=-1),
+    sc.cli.Arg("user", handler=handle_user),
+    sc.cli.Bool("ptp", default=0),
+    sc.cli.Arg("rx_refill_algorithm", handler=handle_help_topic),
+    sc.cli.Uint("packet_count"),
+    sc.cli.Bool("capture_busy_wait", default=True),
+    sc.cli.Bool("writeout_busy_wait", default=True),
+    sc.cli.Arg("strip_fcs", default=-1, handler=handle_strip_fcs),
+    sc.cli.Bool("force_unpack", hidden=True, default=False),
+    sc.cli.Arg("interface", handler=handle_interface),
+    sc.cli.Str("output"),
+    sc.cli.Str("output_shm"),
+    sc.cli.Uint("shm_fanout", default=1),
+    sc.cli.Str("postrotate_command", handler=handle_postrotate),
+    sc.cli.Str("partial_suffix", default=None),
+    ]
+for arg in _args:
+    if not arg.hidden:
+        arg.usage = globals()['HELP_' + arg.name.upper()]
+known_args = dict((a.name, a) for a in _args)
+del(_args)
+
+
+def ip4_str_is_broadcast(ip4_str):
+    return [int(i) for i in ip4_str.split('.')] == [0xff, 0xff, 0xff, 0xff]
+
+
+def ip4_str_is_mcast(ip4_str):
+    if not ip4_str:
+        return False
+    return (int(ip4_str.split('.')[0]) & 0xf0) == 0xe0
+
+
+def ip4_str_to_mac(ip4_str):
+    if ip4_str_is_broadcast(ip4_str):
+        return "ff:ff:ff:ff:ff:ff"
+    elif ip4_str_is_mcast(ip4_str):
+        ip4 = ip4_str.split('.')
+        return "01:00:5e:%02x:%02x:%02x" % \
+            (int(ip4[1]) & 0x7f, int(ip4[2]), int(ip4[3]))
+    else:
+        raise ValueError("'%s' is not broadcast or multicast" % ip4_str)
+
+
+def eth_mac_str_is_mcast(mac_str):
+    return (int(mac_str.split(':')[0], 16) & 1) == 1
+
+
+def get_vi_attr(intf_opts):
+    attr = {}
+    for opt_name, vi_attr_name in vi_attributes.items():
+        val = intf_opts.get(opt_name, None)
+        if val is not None:
+            attr[vi_attr_name] = val
+    return attr
+
+
+def mod_attr(base_attr, **args):
+    attr = base_attr.copy()
+    attr.update(args)
+    return attr
+
+
+def read_forward_fcs(interface):
+    control_file_name = '/sys/class/net/{0}/device/forward_fcs'.format(interface)
+    with open(control_file_name) as fcs_ctl_file:
+        return int(fcs_ctl_file.read())
+
+
+def read_strip_fcs(capture):
+    strip_fcs = capture['strip_fcs']
+    if strip_fcs == -1:
+        forward_fcs = read_forward_fcs(capture['interface'])
+        if forward_fcs == 0:
+            strip_fcs = 1
+        elif forward_fcs == 1:
+            strip_fcs = 0
+        else:
+            sc.cli.err('Unknown system setting for forward_fcs. '
+                       'Please specify strip_fcs=0 or strip_fcs=1.')
+    return strip_fcs
+
+
+def mk_arista_ts(sc_tg, capture, vi, wthread, cthreads):
+    try:
+        args = capture['arista_ts'].split(';')
+        args = dict([a.split('=', 1) for a in args])
+    except:
+        sc.cli.err("arista_ts: cannot parse %r" % capture['arista_ts'])
+
+    if 'switch_model' not in args or args['switch_model'] == '7150':
+        # 7150 switch options
+        if 'kf_ip_dest' not in args:
+            sc.cli.err('arista_ts: missing required kf_ip_dest parameter.')
+        if 'kf_eth_dhost' not in args:
+            try:
+                args['kf_eth_dhost'] = ip4_str_to_mac(args['kf_ip_dest'])
+            except ValueError:
+                sc.cli.err('arista_ts: kf_eth_dhost must be given when kf_ip_dest '
+                           '(%(kf_ip_dest)s) is not multicast.' % args)
+        if 'all' not in capture['streams'] or len(cthreads) > 1:
+            # Not capturing all packets, or we are using RSS.  Need to add
+            # streams to ensure we get a copy of the keyframes to each VI.
+            if len(cthreads) > 1 and not eth_mac_str_is_mcast(args['kf_eth_dhost']):
+                sc.cli.err('arista_ts: when using multiple capture_cores, Arista '
+                           'keyframes must use a multicast mac address.')
+            vi.add_stream(sc_tg.new_stream('dmac=%(kf_eth_dhost)s' % args))
+        strip_fcs = read_strip_fcs(capture)
+
+        if 'ts_mode' not in args:
+            args['has_fcs'] = 0
+        elif args['ts_mode'] == 'before-fcs':
+            if strip_fcs:
+                args['has_fcs'] = 0
+            else:
+                if 'strip_ticks' in args and args['strip_ticks'] == '1':
+                    sc.cli.err('arista_ts: strip_ticks=1 with ts_mode=before-fcs is '
+                               'incompatible with global parameter strip_fcs=0.\n'
+                               'Set strip_fcs=1 or strip_ticks=0.')
+                args['has_fcs'] = 1
+            del args['ts_mode']
+        elif args['ts_mode'] == 'replace-fcs':
+            args['has_fcs'] = 0
+            if strip_fcs:
+                sc.cli.err("arista_ts: 'replace-fcs' requires global parameter strip_fcs=0")
+            del args['ts_mode']
+        else:
+            sc.cli.err("arista_ts: Unknown value for ts_mode. Please specify "
+                       "one of 'replace-fcs', 'before-fcs'.")
+
+    elif args['switch_model'] == '7280':
+        # No special checking required for 7280 switch
+        pass
+
+    else:
+        sc.cli.err("arista_ts: Unknown value for switch_model. Please specify "
+                   "one of '7150', '7280'.")
+    return wthread.new_node('sc_arista_ts', args=args)
+
+
+def mk_cpacket_ts(capture, wthread):
+    try:
+        args = capture['cpacket_ts'].split(';')
+        args = dict([a.split('=', 1) for a in args])
+    except:
+        sc.cli.err("cpacket_ts: cannot parse %r" % capture['cpacket_ts'])
+    strip_fcs = read_strip_fcs(capture)
+    if strip_fcs == 0:
+        args['has_fcs'] = 1
+    elif strip_fcs == 1:
+        args['has_fcs'] = 0
+
+    return wthread.new_node('sc_cpacket_ts', args=args)
+
+
+def add_streams(sc_tg, vi_or_group, capture):
+    stream_attr = {'vid_optional': 1}
+    for s in capture['streams']:
+        vi_or_group.add_stream(sc_tg.new_stream(s, attr=stream_attr))
+
+
+def process(sc_tg, captures):
+    '''Sets up the pipelines for a list of captures.'''
+
+    # No need for low latency, so lets encourage some batching.
+    batch_attr = dict(batch_num_pkts=8, batch_timeout_nanos=100000)
+
+    threads = {}  # map from core_id_or_name => thread
+    def get_thrd(core_id, name, busy_wait):
+        if core_id is None:
+            core_id = -1
+        else:
+            name = int(core_id)
+        if name not in threads:
+            core_id = int(core_id)
+            attr = dict(batch_attr, affinity_core=core_id, busy_wait=busy_wait)
+            threads[name] = sc_tg.new_thread(attr=attr)
+        return threads[name]
+
+    # Create threads.  One per explicitly called out core_id, and one for
+    # capture and one for writeout (where no affinity specified).
+    for capture in captures:
+        capture['capture_threads'] = \
+          [get_thrd(core, 'c', capture['capture_busy_wait'])
+                                      for core in capture['capture_cores']]
+        capture['writeout_thread'] = \
+          get_thrd(capture['writeout_core'], 'w', capture['writeout_busy_wait'])
+
+    # Writer nodes need to receive an exit notification so it can
+    # flush any buffered packets before we exit.
+    #
+    #                         ...
+    #                          |
+    #              VI -> SC_SIGNAL_VI -> ...  SC_WRITER -> SC_EXIT
+    #                          ^
+    #                          |
+    #              VI -> SC_SIGNAL_VI -> ...  SC_WRITER -> SC_EXIT
+    #                          ^
+    #                          |
+    # FRONTEND -> PIPE -> SC_FD_READER
+    #
+    # When we close the pipe (from our signal handler) the reader
+    # sends an EOS signal to the sc_signal_vi, the VI flushes any
+    # buffered packets and propagates the EOS to the writer. The writer
+    # flushes its buffer and forwards the EOS to the exit node.
+    #
+    # If we have multiple threads, the sc_signal_vi in each thread
+    # propagates the EOS signal to the next thread. Once all exit
+    # nodes have seen the signal, the application exits.
+    r_fd, w_fd = os.pipe()
+    prev_signal_vi = None
+    postrotate_cmds = {}
+    for i, capture in enumerate(captures):
+        for stream in capture['join_streams']:
+            capture['streams'].append(stream)
+            mcast_spec = sc.get_mcast_group(sc_tg, stream)
+            if mcast_spec:
+                capture['join_mcasts'].append(mcast_spec)
+        if not capture.get('streams'):
+            capture['streams'] = ['all']
+        if capture['ptp']:
+            install_igmp_filters(capture['interface'])
+
+        cthreads = capture['capture_threads']
+        wthread = capture['writeout_thread']
+        attr = get_vi_attr(capture)
+        if capture['arista_ts'] or capture['cpacket_ts']:
+            attr['hw_snap'] = 0
+        attr['group_name'] = "cap%d" % i
+        attr.update(batch_attr)
+
+        if not(capture['filter'] or capture['arista_ts'] or
+               capture['extensions']):
+            attr['linear_header'] = 0
+
+        if not(capture['filter'] or capture['extensions'] or
+                capture['packet_count'] or capture['force_unpack']):
+            attr['unpack_packed_stream'] = 0
+
+        if capture['write_mode'] == 'safe':
+            capture['sync_on_close'] = 1
+            attr['force_sync_writer'] = 1
+        elif not capture['write_mode'] == 'fast':
+            raise ValueError("write_mode must be set to 'safe' or 'fast'")
+
+        wargs = { 'snap'             : capture['snap'],
+                  'append'           : capture['append'],
+                  'sync_on_close'    : capture['sync_on_close'],
+                  'on_error'         : capture['on_write_error'],
+                  'format'           : capture['format'],
+                  'rotate_seconds'   : capture['rotate_seconds'],
+                  'rotate_file_size' : capture['rotate_file_size'],
+                  'discard_mask'     : capture.get('discard_i',0)}
+        if capture['partial_suffix'] is not None:
+            wargs['partial_suffix'] = capture['partial_suffix']
+
+        if len(cthreads) > 1:
+            vi_group = sc_tg.new_vi_group(capture['interface'],
+                                          len(cthreads), attr=attr)
+            add_streams(sc_tg, vi_group, capture)
+            if 'n_bufs_rx' in attr:
+                attr['n_bufs_rx'] = int(attr['n_bufs_rx']) / len(cthreads)
+                attr['n_bufs_rx_min'] = attr['n_bufs_rx']
+
+        for chan_id, cthread in enumerate(cthreads):
+            if capture['output']:
+                fname = capture['output'].replace('$c', str(chan_id))
+                wargs['filename'] = fname
+                wname = '%s-%d' % (capture['interface'], chan_id)
+                wattr = mod_attr(attr, name="sc_writer(%s)" % wname)
+                wattr = mod_attr(wattr, pool_size=capture['writeout_buffer'])
+                writer = wthread.new_node('sc_writer', args=wargs, attr=wattr)
+                if capture['postrotate_command']:
+                    pr_r_fd, pr_w_fd = os.pipe()
+                    postrotate_cmds[pr_r_fd] = capture['postrotate_command']
+                    fd_writer = wthread.new_node('sc_fd_writer', args={'fd' : pr_w_fd})
+                    sc.connect(writer, 'postrotate-filename', fd_writer)
+            elif capture['output_shm']:
+                if len(cthreads) > 1:
+                    sc.cli.err("output_shm is not supported with multiple capture cores.")
+                shmargs = dict(path=capture['output_shm'],
+                               max_channels=capture['shm_fanout'])
+                writer = wthread.new_node('sc_shm_broadcast', args=shmargs)
+            else:
+                sc.cli.err("Missing output= or output_shm= in capture to " + \
+                           "interface '%s'" % capture['interface'])
+
+            if len(cthreads) > 1:
+                vi = cthread.new_vi_from_group(vi_group, attr=attr)
+            else:
+                vi = cthread.new_vi(capture['interface'], attr=attr)
+                add_streams(sc_tg, vi, capture)
+
+            pipeline = vi
+            signal_vi = cthread.new_node('sc_signal_vi')
+            pipeline = sc.connect(pipeline, signal_vi)
+            if capture['cpacket_ts']:
+                cpacket_ts = mk_cpacket_ts(capture, wthread)
+                pipeline = sc.connect(pipeline, cpacket_ts)
+            if capture['arista_ts']:
+                arista_ts = mk_arista_ts(sc_tg, capture, vi, wthread, cthreads)
+                pipeline = sc.connect(pipeline, arista_ts)
+            if capture['filter']:
+                filter_args = dict(bpf=capture['filter'])
+                filter_node = wthread.new_node('sc_filter', args=filter_args)
+                pipeline = sc.connect(pipeline, filter_node)
+            for extn in reversed(capture['extensions']):
+                extn['library'] = extn['args'].pop('nodelib', None)
+                node = wthread.new_node(**extn)
+                pipeline = sc.connect(pipeline, node, attr=attr)
+
+            if capture['packet_count']:
+                _range = '-%d' % (capture['packet_count'] - 1)
+                if _range == '-0':
+                    _range = '0'
+                rf = wthread.new_node('sc_range_filter', args={'range': _range})
+                pipeline = sc.connect(pipeline, rf, attr=attr)
+
+            exiter = wthread.new_node('sc_exit')
+            for node in [writer, exiter]:
+                pipeline = sc.connect(pipeline, node, attr=attr)
+
+            if prev_signal_vi is None:
+                fdr_thread = sc_tg.new_thread(attr=dict(busy_wait=0))
+                reader = fdr_thread.new_node('sc_fd_reader', args={'fd': r_fd})
+                sc.connect(reader, signal_vi, 'ctl')
+            else:
+                sc.connect(prev_signal_vi, 'ctl', signal_vi, 'ctl')
+            prev_signal_vi = signal_vi
+
+        if capture['join_mcasts']:
+            sc_tg.join_multicast_groups(capture['interface'],
+                                        capture['join_mcasts'])
+
+    return w_fd, postrotate_cmds
+
+
+def drop_privs(username):
+    try:
+        pwdb_entry = pwd.getpwnam(username)
+        sc.initgroups(pwdb_entry[0], pwdb_entry[3])
+        os.setgid(pwdb_entry[3])
+        os.setuid(pwdb_entry[2])
+    except KeyError:
+        sc.cli.err("User '%s' not known when dropping privileges" % username)
+
+
+def install_mac_mcast_filter(intf, address):
+    mac = ip4_str_to_mac(address)
+    err = os.system ("sfctool -U %s flow-type ether dst %s "
+                     "action 0 > /dev/null 2>&1" % (intf, mac))
+    if err:
+        err = os.system ("sfctool -U %s flow-type ether dst %s action 0" \
+                         % (intf, mac))
+        sc.cli.err("Could not run sfctool to install filters (error %d).  "
+                   "Are you running solar_capture as root?  Is sfctool "
+                   "installed and in your path?  The Solarflare utilities "
+                   "package containing sfctool can be downloaded from "
+                   "http://support.solarflare.com." % (err >> 8))
+
+
+def install_igmp_filters(intf):
+    # Add filter for IGMP v2 traffic
+    install_mac_mcast_filter(intf, "224.0.0.1")
+
+    # Add filter for IGMP v3 traffic
+    install_mac_mcast_filter(intf, "224.0.0.22")
+
+    # Add filters for IGMP traffic to PTP groups
+    install_mac_mcast_filter(intf, "224.0.1.129")
+    install_mac_mcast_filter(intf, "224.0.0.107")
+
+
+def read_str(fd):
+    rstr = ""
+    while True:
+        try:
+            b = os.read(fd,1)
+            if b[0] == '\0':
+                return rstr
+            else:
+                rstr += b
+        except OSError as e:
+            if e.errno == errno.EINTR:
+                pass # Interrupted by a signal
+            else:
+                raise
+
+
+def main(args):
+    captures = sc.cli.parse_args(args, known_args, usage_text,
+                                 handle_unknown_arg=handle_other_arg)
+    if not captures:
+        sc.cli.err('You did not specify any interfaces to capture on')
+
+    sc_tg = sc.new_session(attr=dict(name='solar_capture'))
+    pipe_fd, postrotate_cmds = process(sc_tg, captures)
+    postrotate_fds = postrotate_cmds.keys()
+
+    def signal_handler(signum, frame):
+        try:
+            os.close(pipe_fd)
+        except OSError, ex:
+            if ex.errno != errno.EBADF:
+                raise
+
+    if captures[0]['user']:
+        drop_privs(captures[0]['user'])
+
+    sc_tg.go()
+    for signum in [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]:
+        signal.signal(signum, signal_handler)
+    while True:
+        readable = []
+        try:
+            readable, _, _ = select.select(postrotate_fds, [], [])
+        except select.error as e:
+            err, _ = e
+            if err == errno.EINTR:
+                pass # Interrupted by a signal
+            else:
+                raise
+        for r in readable:
+            fname = read_str(r)
+            cmd_list = shlex.split(postrotate_cmds[r].replace("$F", fname))
+            try:
+                subprocess.check_call(cmd_list)
+            except (subprocess.CalledProcessError, OSError) as e:
+                msg = "WARNING: postrotate command failed: %s\n" % (e)
+                sys.stderr.write(msg)
+
+if __name__ == '__main__':
+    try:
+        main(sys.argv[1:])
+    except (sc.SCError, ValueError), e:
+        s = str(e)
+        if 'ERROR:' not in s:
+            s = 'ERROR: ' + s
+        if not s.endswith('\n'):
+            s += '\n'
+        sys.stderr.write(s)
+        sys.exit(1)

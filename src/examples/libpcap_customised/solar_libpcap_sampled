@@ -1,0 +1,49 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+######################################################################
+
+usage_msg() {
+    echo
+    echo "usage:"
+    echo "  $(basename "$0") INTERFACE FRACTION COMMAND [ARGS]..."
+    echo
+}
+
+
+usage_err() {
+    usage_msg >&2
+    exit 1
+}
+
+######################################################################
+# main()
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --help)
+            usage_msg; exit;;
+        -*)
+            usage_err;;
+        *)
+            break;;
+    esac
+    shift
+done
+
+[ $# -ge 3 ] || usage_err
+interface="$1"
+fraction="$2"
+shift 2
+
+
+# Tell SolarCapture to look in this directory for custom nodes.
+export SC_NODE_PATH=$(cd "$(dirname "$0")" && /bin/pwd)
+
+# Tell the SolarCapture libpcap bindings to use a custom node as the packet
+# source when device "$interface" is opened.
+nodespec="sampled:interface=$interface;fraction=$fraction"
+export SC_PCAP_SOURCE_$interface="sc:$nodespec"
+
+solar_libpcap "$@"

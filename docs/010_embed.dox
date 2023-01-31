@@ -1,0 +1,118 @@
+// SPDX-License-Identifier: MIT
+// X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+/**************************************************************************
+ * Embedding page
+ *************************************************************************/
+ /*! \page embed Embedding SolarCapture
+
+The SolarCapture distribution includes C bindings, allowing SolarCapture to
+be embedded in applications. Example code can be found at:
+
+`/usr/share/doc/solar_capture-<version>/examples`
+
+Applications that embed SolarCapture should include the `<solar_capture.h>`
+header, and should link to the `solarcapture1` library, as shown in the sample
+code. The header files can be found at:
+
+`/usr/include/solar_capture/`
+
+The following sections describe the main objects and concepts used in
+SolarCapture. For more information please refer to the example code, and
+the other documentation in this Guide.
+
+\section embed_sessions Sessions — struct sc_session
+
+All applications embedding SolarCapture must first instantiate a session
+object. A session provides an association between SolarCapture components.
+
+All objects in a SolarCapture session are allocated up front, and packet
+processing is then initiated by calling sc_session_go(). Once packet
+processing has started it is not possible add new objects to the session.
+
+\section embed_attributes Attributes — struct sc_attr
+
+Attributes provide a convenient way to specify options, such as the size of
+buffers. For detailed information concerning SolarCapture attributed, refer
+to SolarCapture Attributes on page 108.
+
+\section embed_threads Threads — struct sc_thread
+
+A session includes one or more threads that work together. Threads can be
+used for packet capture, packet processing and other tasks.  The threads in
+a particular session are started and stopped as a group.
+
+Objects that are part of the data-path are associated with a particular
+thread and are only accessed by that thread.  This allows SolarCapture to
+operate without locks or expensive atomic operations, and helps to avoid
+sharing state between CPU caches.
+
+A thread can be bound to a particular CPU core by setting the `affinity_core`
+attribute.
+
+By default SolarCapture threads use busy-waiting.  That is, they consume
+CPU cycles even when they do not have any work to do.  Threads can be
+configured to sleep when idle by setting the `busy_wait` attribute to 0.
+
+\section embed_virtual_interfaces Virtual Interfaces — struct sc_vi
+
+A virtual interface (VI) receives packets from a network interface, and
+passes them on to a node.  The sc_stream interface is used to indicate
+which packets should be steered to a particular VI.
+
+\section embed_nodes Nodes — struct sc_node
+
+Nodes perform processing on packets.  SolarCapture includes many node types
+that can be used in applications, and new node types can be implemented
+using the \ref extend API.
+
+VIs and nodes are connected in a directed acyclic graph, with node links
+passing packet buffers from one node to another.  The buffers that are
+passed between nodes don't have to contain packets: They can contain any
+sort of data or messages.  Nodes can be used to inspect or modify the
+packet buffers, generate new packet buffers, perform custom processing or
+interact with other parts of the system.
+
+Connections can be made between nodes in the same thread or in different
+threads, provided that the threads are in the same SolarCapture session.
+Connections between threads use mailboxes, which are created automatically.
+
+Packet buffers are allocated by packet pools.  Many nodes receive packet
+buffers from VIs or other nodes via incoming links.  It is also possible
+for nodes to allocate buffers from a pool.  Buffers are freed back to their
+pool by forwarding them through a node link that is not connected.
+
+A user application can consist of one or more nodes which may co-operate in
+order to progressively process the received network packets.
+
+\image html example_app_nodes.png "Example Application Nodes"
+\image rtf example_app_nodes.png "Example Application Nodes"
+\image latex example_app_nodes.png "Example Application Nodes"
+
+The figure above is an example of co-operating nodes in a stock trading
+environment. Captured packets are fed to a filtering node which selects
+packets of interest to be forwarded to a second node for further analysis.
+All other packets a fed to the disk writer node. The analysis node will
+conduct further analysis on the packets such as statistics collection before
+passing packets to the disk writer node.
+
+\section embed_mailboxes Mailboxes — struct sc_mailbox
+
+Mailboxes are used to pass packet buffers between nodes in different
+threads, using an efficient lock-free mechanism. Each mailbox is paired
+with another in a different thread, and packets can be passed through a
+pair of mailboxes in both directions.
+
+Mailboxes are created automatically when nodes in different threads are
+connected.  Applications can create mailboxes explicitly if they need more
+fine-grained control.
+
+\image html mailboxes.png "Mailboxes"
+\image rtf mailboxes.png "Mailboxes"
+\image latex mailboxes.png "Mailboxes"
+
+\section embed_built_in_nodes Built-In Nodes
+
+Many built-in nodes are available. These are documented in \ref nodes.
+
+*/

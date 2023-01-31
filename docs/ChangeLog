@@ -1,0 +1,492 @@
+solarcapture-1.6.10
+-------------------
+First opensource release. No significant feature changes.
+
+Core enhancements:
+  Update build to install from source (rather than RPM)
+
+solarcapture-1.6.9
+------------------
+
+Core enhancements:
+  SOLARCAP-1556: Updated Xilinx copyright notices
+  SOLARCAP-1559: Remove Snort DAQ bindings
+
+solarcapture-1.6.6
+------------------
+
+Core enhancements:
+  bug86463: Added support for X2 NICs
+  bug61507: Various mailbox improvements
+  task59514: Added support for sc_session_destroy(), sc_session_run() and
+             sc_session_stop() in public API
+  task69648: Added RX event merging support for Medford adapters
+
+Node enhancements:
+  bug70885: Added support for Arista 48bit timestamps on 7280 series switches
+  task86904: Updated cpacket node to be compatible with Arista-Metamako TLVs
+
+Bugs fixed:
+  SCTT-313: Correctly mark a pool as having huge pages when using file backed
+            shared memory with the require_huge_pages pool attribute set to 1.
+  bug86271: fix pred_stats example build
+
+solarcapture-1.6.5
+------------------
+
+Bugs fixed:
+  bug76447: restore sc_writer file preallocation
+  bug76220: fix bug when allocating VI via solar_clusterd
+  SOLCAP-1292: Make Arista node resilient to invalid timestamps
+
+solarcapture-1.6.4
+------------------
+
+Node enhancements:
+  SOLCAP-376: Added support for Arista 7280 series switch timestamps
+  task72431:  solar_capture: Add option "partial_suffix".
+  task72429:  sc_arista_ts: Do not drop sync when packet has bad timestamp.
+
+Bugs fixes:
+  bug71186: fix overflow in hash table lookup
+  bug71010: Fix low limit on filename length and node name length.
+  bug71786: sc_flow_balancer: Flush buffered packets at end-of-stream.
+  bug72425: sc_arista_ts: Handle mis-ordered host timestamps more elegantly.
+  SOLCAP-860: sc_flow_balancer has a random chance of failing every time it
+              tries grow its hash table.
+
+solarcapture-1.6.3
+------------------
+
+Core enhancements:
+  performance: Optimise sc_pkt_pool_put().
+  performance: Always recycle packed-stream buffers in order.
+  performance: Avoid unintentional type conversion on fast path of sc_arista_ts
+               node.
+
+Bugs fixed:
+  bug58274: CDP packets captured with CSS are wrongly marked by ef_vi with an
+            FCS error.
+  bug61569: Error paths in Python bindings have memory leaks.
+  bug61999: sc_exit node can call exit() from more than one thread.
+  bug63365: solar_replay segfaults on corrupt PCAP file.
+  bug64010: SCP 1.6 does not roll over on hitting rotate_file_size.
+  bug64634: Unexpected behaviour when using config file containing multiple
+            'interface' lines.
+  bug65003: sc_pkt_pool_alloc can fail when using sc_mmap_fname attr.
+  bug65822: 8 byte stats fields are not naturally aligned.
+
+solarcapture-1.6.0
+------------------
+
+Tools and utility enhancements:
+  solar_replay: Now exits on EOF when in interactive mode.
+  solar_replay: Reduce memory consumption and registered memory consumption.
+  solar_replay: Add num_repeats option.
+  solar_capture: Add output_shm= opt; outputs to shared mem channel.
+  solar_capture: Allow multicast joins on arbitrary interfaces (eg. for bonds).
+  solar_capture: Added capture_buffer and writeout_buffer arguments.
+  solar_capture: Added postrotate_command to invoke command after file rotate.
+  Add ".partial" suffix to file name while writing with file rotation.
+  Add support for Arista timestamps in before-fcs mode with strip_fcs=0.
+  Include timestamp at start of solar_capture_monitor dump.
+  Add "solar_capture_monitor dot" to output node graph as graphviz dot format.
+  Make solar_capture_monitor line_total and line_rate work with libpcap.
+  Support "solar_capture_monitor poke obj.field=val".
+  solar_balancer: New utility for distributing load over consumer applications.
+  Attributes that are sizes now accept suffixes such as kB, KiB, MiB etc.
+
+Core enhancements:
+  Add support for eth_type, ip_protocol and vlan streams on 7xxx adapters.
+  Expose packed-stream format through C bindings for higher efficiency.
+  Allow sc_attr to be passed as args to nodes.
+  Improve trace-level logging so can see where packets are going.
+  New batching attributes: batch_num_pkts, batch_timeout_nanos, batch_max_pkts.
+  New pool attributes: pool_size, pool_bin_size.
+  Prep nodes after their subnodes when possible.
+  Make integer attributes 64 bit.
+  Add tracing of callbacks at log level 5.
+  Ensure pending callbacks are handled before any packets at start of day.
+  Allow kMG suffixes in sc_node_init_get_arg_dbl (indicating 10^3,6,9)
+  Add log_base_dir attribute to control where stats directories are located.
+
+libpcap and DAQ:
+  Improve error reporting in libpcap bindings.
+  Enable libpcap to source packets from any SolarCapture node.
+  DAQ: Support ingress from arbitrary node via sc:node:args syntax.
+  Set SC_PCAP_SPIN=0 to enable blocking behaviour in libpcap.
+  Add limited support for pcap_setdirection().
+
+C bindings:
+  Support C++ by replacing SC_ARG_ macros with inline functions.
+  New functions:
+    sc_node_init_get_arg_int64()
+    sc_attr_to_object(), sc_attr_from_object()
+    sc_node_to_object(), sc_node_from_object()
+    sc_pool_to_object(), sc_pool_from_object()
+    sc_forward2(), sc_forward_list2()
+    sc_node_link_end_of_stream2()
+    sc_node_set_errorv()
+    sc_node_prep_does_not_forward()
+    sc_node_prep_link_forwards_from_node()
+    sc_iovec_ptr_copy_out()
+    sc_attr_set_from_fmt()
+    sc_subnode_helper_request_callback()
+    sc_pool_set_refill_node(), sc_pool_wraps_node()
+    sc_hash_table_*()
+    sc_node_alloc_from_str()
+    sc_pool_get_buffer_size()
+    sc_callback_alloc2(), sc_callback_set_description()
+    sc_thread_poll_timers()
+
+Python bindings:
+  Fix Vi.set_recv_node(node, name).
+  Add Thread.new_node_from_str().
+  Allow a node to be linked to itself.
+  Add session attribute to Thread and ViGroup objects.
+
+Changes to nodes:
+  sc_line_reader: Make adding of a terminating nul configurable.
+  sc_fd_reader: Add option to fill complete buffers before forwarding.
+  sc_tracer: Add additional modes for reporting contents of packets.
+  sc_tap: Make SC core aware that packets are not forwarded to "tap" link.
+  sc_tap: Make faster when reliable=0 and it runs out of buffers.
+  sc_repeater: Avoid expensive division in fast paths.
+  sc_range_filter: Improve performance by forwarding in batches.
+  sc_arista_ts: Improve performance by removing extended precision operations.
+
+New nodes:
+  sc_vi_node (emits packets from an sc_vi, and injects arriving packets)
+  sc_rt_pacer (interactive control of packet rate)
+  sc_subnode_helper (help implement nodes that manage backlogs)
+  sc_tunnel (connect SolarCapture instances on remote hosts)
+  sc_shm_broadcast, sc_shm_export and sc_shm_import (shared mem connections)
+  sc_rr_spreader, sc_rr_gather (round-robin load spreading)
+  sc_token_bucket_shaper (traffic shaping)
+  sc_cpacket_encap (adds cPacket encapsulation)
+  sc_cpacket_ts (decodes cPacket encapsulation and extracts timestamps)
+  sc_pass_n (forwards a given number of packets)
+  sc_flow_balancer (distribute load over multiple consumers)
+  sc_pcap_packer (generate PCAP encapsulation)
+  sc_tuntap (pass packets between SolarCapture and the kernel stack)
+  sc_ps_unpacker (unpack buffers in packed-stream format)
+  sc_fd_writer (write packet buffer contents to an fd)
+
+Bugs fixed:
+  bug51725: fix sc_block_writer backlog_len stat
+  bug51773: sc_strip_vlan used TPID=0x81 by default, so tags were not stripped.
+  bug52619: Fix piping of solar_capture output.
+  bug52629: Update write_bytes stat in sc_perf_writer in a timely fashion.
+  bug52625: Fix excess memory (and buffer table) consumed by sc_reader.
+  bug52655: Fix DAQ recv_batch parameter when in packed-stream mode.
+  bug53435: Fix bug when doing join_streams on multiple captures.
+  bug54194: DAQ: Fix possible failure of timeout if clock steps.
+  bug54562: Fix seg-fault when a nt_select_subnode_fn callback returns NULL.
+  bug55064: Fix live-lock when sc_repeater loop is in one thread.
+  bug55857: Fix failing assert when emitting packed stream packets from backlog.
+  bug55939: Fix extra thread hops with arista_ts=, filter=, packet_count=
+  bug: sc_arista_ts: Fix byte-swap bug in the "kf_switch_drops" stat.
+  bug58527: Fix pcap_findalldevs() preventing concurrent activation.
+  bug58642: Fix pcap_get_selectable_fd() so it is level-triggered.
+  bug54728: solar_replay: Fail rather than hang on insufficient buffers.
+  bug57676: Fix solar_capture_monitor bug when no sessions are found
+  bug59099: Fix solar_capture crash when given bad argument
+  bug57686: Fix solar_capture_monitor trace when terminal window is too small.
+  bug57686: Do not exit solar_capture_monitor when the window is resized
+  bug55301: Better error reporting when we fail to add a stream.
+  bug59173: Make the "to_name" NULL in sc_node_add_link() etc. from python.
+  bug59165: Fix file naming after rotation.
+  cleanup: Get rid of duplicate "sc_node_add_link" lines in debug output.
+  bug59239: Fix file rotation with sync_on_close=1 when fsync() fails.
+  bug59239: Improve error handling and reporting in sc_perf_writer.
+  bug59239: Export info about sc_writer errors via solar_capture_monitor.
+  bug55151: Handle info strings that are empty (sc_node_add_info_str()).
+  bug59445: Avoid overflow in buffer size calculations.
+  bug59540: Fix DMA transmit of wrapped packets.
+  bug59622: Fix segfault when creating an injector for a nonexistant interface.
+  bug59601: Better error msg on mcast join failure due to igmp_max_memberships.
+  bug59646: Release python global interpreter lock in calls to SolarCapture.
+  bug48350: Remove RTLD_DEEPBIND flag from call to dlopen().
+  bug46143: Support more than 64 pools and/or threads per session.
+  bug53580: libpcap: Fix timeout; should be on inter-packet gap.
+  bug53594: libpcap: Fix pcap_dispatch() blocking after processing packets.
+
+
+solarcapture-1.3.1
+------------------
+
+Added C API and node documentation.
+Add n_full_bins and min_full_bins stats for pools.
+Add some VI stats to give insight into TX path.
+Create directory for capture output file if it doesn't already exist.
+Snort DAQ: Various performance and scaling improvements and bug fixes.
+Support 64K buffers when using packed stream mode (improves performance).
+libpcap: Much higher capture performance.
+libpcap: Support pcap_get_selectable_fd(), which means we now support Bro IDS.
+Convert between types as needed when setting attributes.
+Support forwarding packets when using packed stream mode.
+Support more natural boundaries to align file rotation.
+solar_capture: Add option write_mode=safe to support concurrent read of output.
+solar_capture: New options to allow arbitrary interface names.
+solar_capture_monitor: Count sends via unmanaged mailboxes.
+solar_capture_monitor: Add option to specify base directory.
+Support minutes/hours when passing durations to solar_replay.
+Error out if packets can reach a node that has no nt_pkts_fn().
+Allow packed packed-stream mode when software timestamps are used.
+Allow packed packed-stream mode when discard_mask is set.
+Added new "forwarding" sample code plus various improvements to other samples.
+Add option to touch data in sc_sim_work node.
+Improve performance of sc_pacer node.
+Add sc_strip_vlan node.
+Add sc_delay_line node for simulating links with delays.
+Accept integer node arguments passed as hex or octal string.
+
+bug50464: Fix errors when some arguments are specified in a config file.
+bug50465: libpcap: Fix zero-length packets after a fork. Seen with broctl.
+bug49875: Fix failure when allocating >2 gigabytes of buffering.
+bug49996: Make it possible to use single character output filenames.
+bug50102: Report error on unsupported snap/unpacked_packed_stream
+bug50190: Fix error when trying to join multicast group on non-existent vlan.
+cleanup: Fix bug in binary node search path.
+bug48732: Don't snap in hardware when using arista timestamps.
+bug49797: Catch filename overflow in sc_perf_writer.
+bug49816: Fix spurious failure to register memory for DMA.
+bug48850: Fix hang in solar_replay when jumbo frames are replayed.
+bug46143: Fix limit of 64 packet pools and 64 threads.
+bug48350: Fix incompatibility with c++ nodes with some compilers.
+bug48725: Fix multiple signals in quick succession cause backtrace
+bug48525: Support passing 'long' values to nodes via python API.
+bug48088: Only emit a packed buffer at session stop if it is non-empty.
+bug47616: libpcap: Fix file descriptor leak in pcap_close().
+bug47613: sc_tap: Fix bug in handling of end-of-stream condition.
+bug47615: sc_tap: Fix buffer leak when pool runs out of buffers.
+bug47609: Respect SC_PCAP_RECV_BATCH when in nonblocking mode.
+bug47607: libpcap: Do not return early when buffer_size is reached.
+bug47608: libpcap: Do not filter discards in packet count.
+bug47594: Fix dropped packets in pcap_next().
+bug47254: Fix int overflow for large buffer pools causing error message.
+bug46837: Fix bugs that could cause starvation when a packet pool is shared.
+bug46806: Fix inaccurate software timestamps in packed-stream mode.
+bug46779: Fix segfault in sc_node_alloc() if nf_init_fn does not set.
+bug46700: Support Snort DAQ in passive mode with packed-stream mode.
+bug46144: Suppress output from session in sfsc_can_handle.
+bug45918: Fix problem using non-AOE adapter when solar_aoed is running.
+bug46182: Fix size-based file rotation when size >2147483648.
+bug46144: Don't rely on vlan interfaces being named 'base.id'
+bug46146: Fix incorrect CPU affinity when creating sub-nodes.
+bug44285: Flush partially full pcap buffer to disk on timeout.
+cleanup: do not allow rotate_* in combination with append.
+bug46067: Fix reference counting with packed stream when reordering present.
+cleanup: Fix timestamp parsing when local time is dst.
+bug45650: Fix segfault when no memreg succeeds for not-inline pool.
+bug45718: Fix error reporting when sc_ef_vi_alloc fails with EINVAL.
+
+
+solarcapture-1.3.0
+------------------
+
+Support packed-stream firmware; supports guaranteed line rate on 7000-series.
+Repackaged into four RPMs: core, python, live and pro.
+Add solar_replay for high-rate and high-fidelity packet replay.
+Support egress capture on 7000-series adapters.
+Add option to preserve frame checksum (FCS) on 7000-series adapters.
+Add support to block (sleep) rather than busy-poll in threads managing VIs.
+Add support for using preallocated huge pages for packet pools.
+Add new sample code c_api_export.
+Add solar_capture tool config_file option.
+Improve error handling and reporting.
+libpcap: Improve RX packet rate performance.
+libpcap: Add environment variable SC_PCAP_RECV_BATCH to control polling rate.
+libpcap: Accept the name of a "cluster" as the device name.
+snort: Add Snort DAQ, which adds support for Snort "inline" mode.
+Allow Arista timestamps in replace-fcs mode.
+Set O_NONBLOCK on fd passed to sc_fd_reader node.
+
+SC_API_VER bumped to 3.
+Add solar_capture_doc tool.  Currently just documents attributes.
+Add sc_attr_doc() to retrieve documentation for attributes.
+Add sc_session_prepare(), sc_session_pause() for session control.
+Add sc_session_error_get(), sc_session_error_free to support error reporting.
+Add sc_vi_get_interface_name() to retrieve name of real interface.
+Add sc_vss node that handles VSS timestamps and portstamps.
+Add node sc_pool_forwarder that forwards packets from a pool.
+
+bug43290: Fix invalid uid and gid for files in source RPM.
+bug43613: Prevent starvation of misc I/O (epoll events) when busy.
+bug42732: Reject negative snap values.
+bug44236: Fix mailbox concurrency bug.
+bug42434: Base file rotation on packet timestamps rather than system time.
+bug44037: Accept units for all time-based rate control commands.
+bug43986: Tidy up output of solar_capture_monitor.
+bug43260: Fix require_hw_timestamps and force_sw_timestamps on AOE adapters.
+bug43935: Add pkts_rejected statistic to sc_filter node.
+bug43557: Allow time based filenames even when not using rotate_seconds.
+bug44867: Fix error using join_streams with new-style syntax.
+bug45108: Fix allocate_bufs stat in solar_capture_monitor.
+bug45423: Fix "Can't delete system dir /usr/include" when uninstalling RPM.
+bug45485: Set maximum snaplen in pcap header to 262144.
+bug45835: Fix duplicate close() during sc_session_alloc().
+bug45837: Fix segfault caused by list corruption in sc_filter node
+
+
+solarcapture-1.2.2
+------------------
+
+Added environment variable SC_PCAP_NANOSEC=1 to select nanos with libpcap.
+
+bug42844: Fix unable to allocate VI with RX HW timestamping.
+bug42930: Fix segmentation fault when packet pool is shared.
+bug43087: Avoid duplicate forwarding of RHD probe packets from sc_rhd_seq.
+bug42878: Fix bug that limited amount of packet buffer memory with SFN7xxx.
+
+
+solarcapture-1.2.1
+------------------
+
+Many performance improvements, particularly for capture-to-disk.
+Update libpcap to v1.5.3.
+Improve performance of libpcap bindings (TX and RX).
+Add support for pcap_set_tstamp_type(), pcap_set_tstamp_precision() etc.
+solar_capture: New sc_stopcock node.
+Added new sample for 'unmanaged' components.
+
+bug41440: Fix time associated with first file when using rotate_seconds.
+bug41415: Default n_bufs_rx_min to min(8192, n_bufs_rx).
+bug41449: sc_arista_ts: Don't drop sync when pkt w/o timestamp received.
+bug41462: Support Arista timestamps with multiple capture cores.
+task26601: Make the topology dump easier to follow.
+cleanup: Fix bad comment in c_api sample.
+bug41959: Fix use of interface name as a cluster name with libpcap bindings.
+bug42190: Avoid false detection of skew when Arista timestamp keyframes stop.
+bug42216: Ensure packets are propagated ahead of end-of-stream signal.
+cleanup: Fix tx_ring_max reported in solar_capture_monitor.
+bug42170: Fix to rhd_vi_free. Only destroying cluster when necessary.
+bug42191: No-desc drops can go undetected by solar_capture_monitor n_rxq_low.
+bug42182: Install a symlink of libpcap.so.0 to libpcap.so.1
+bug42396: Fix hardware timestamping for jumbo frames.
+bug42252: Fix detection of Pro license when using AOE.
+
+
+solarcapture-1.2
+----------------
+
+Add support for 7000-series (Flareon) SFC adapters
+Add bindings for libpcap
+Add support for software filtering of captured streams
+Add ability to "sniff" rather than "steal" traffic on 7000-series adapters
+Add support for application clustering
+Improvements to solar_capture_monitor to report current line rate
+Add vi_group_id to all VI stats in solar_capture_monitor
+Expose the node is_free_path flag in solar_capture_monitor
+Expose whether hardware timestamping is enabled on VI in solar_capture_monitor
+Export end-of-stream state via solar_capture_monitor
+Added expanded syntax for the streams= option to solar_capture
+Add node sc_batch_limiter to limit batch sizes
+Add support for vlan tags on udp/tcp filters
+Add support for mismatch filters
+Allow mailbox_recv_max_pkts=0 attribute to disable recv-side batching.
+Add sc_epoll_ctl() to manage file descriptors
+Add thread attribute busy_wait=0 to disable busy-waiting
+Add SC_PCAP_THREAD to configure whether libpcap should use multiple threads.
+
+bug38905: Report more friendly message when used on unsupported Onload versions
+bug39169: Adding attributes to control timestamp support in VI allocation
+bug35262: Don't exit until all streams finished to avoid lost missing packets
+bug40642: Fix rss chan# substituted into filename when >1 chan in a thread.
+bug40952: Remove option to set truncated discard mask in frontend
+bug40982: Expose size of RHD packet pool through attributes
+bug26601: Handle reordering of keyframes and timestamped frames
+bug40668: Support new Arista keyframe format (introduced in EOS-4.13).
+bug26601: Make SC_DECLARE_TYPES optional so >1 c files can share types.
+bug26601: Make sc_session_alloc() thread safe
+bug26601: Fix topology bug in sc_line_reader
+bug26601: Fix bug causing end-of-stream to be forwarded repeatedly by mbox
+bug26601: Fix end-of-stream when node reached by mailbox recv and other path
+bug26601: Added sc_realloc() and use to simplify growing arrays
+bug26601: Added sc_node_prep_set_forward_links() to improve topology.
+bug41083: Remove enforcement of RSS restrictions from solar_capture front end
+bug35262: Use epoll to manage sc_fd_reader to improve scaling
+bug40448: bug41885: Various performance improvements
+bug41227: Fall back on local alloc if solar_aoed cannot find interface on AOE
+bug41203: Include potential vid in field passed to join_multicast_groups.
+bug41249: Fix leaking buffers, dropping pkts and fault on empty send pool
+
+
+solarcapture-1.1
+----------------
+
+Added support for AOE SolarCapture devices.
+solar_capture: Support capturing multiple interfaces to a single file.
+solar_capture: Do not snap by default.
+solar_capture: Improved rotate_seconds so empty files are created in realtime.
+solar_capture_monitor: Added lots of configuration detail to "dump" output.
+solar_capture_monitor: API to allow custom nodes to export information.
+solar_capture_monitor: Export configuration and state about Arista timestamps.
+solar_capture_monitor: Added thread attribute "idle_monitor".
+Added script solar_debug to simplify debug and enabling logging.
+Improved debug checks when solar_debug is used.
+Added support for transmit via sc_injector nodes.
+Improve packet rate performance and passing packets between threads.
+Allow packets from multiple interfaces to flow over the same links.
+Added lots more documentation for the C bindings (see header files).
+Lots of API extensions inc. callbacks, timers, predicates, packet pools.
+Allow sc_vi_set_recv_node() to link to a node in another thread.
+Allow sc_node_add_link() to link to a node in another thread.
+Added interface to notify nodes that the stream has ended.
+Error out if sc_vi has streams but no recv node (instead of crashing).
+Location for node libraries moved to /usr/lib64/solar_capture/site-nodes.
+Added attributes active_discard, snap, capture_mode, cluster.
+Added AOE attributes capture_mode, delivery_interface, capture_point.
+Added node sc_filter node to select packets by BPF match or other predicate.
+Added node sc_tap to take a copy of all or a subset of packets.
+Added node sc_reader for reading pcap files.
+Added node sc_fd_reader for reading raw data from a file descriptor.
+Added node sc_line_reader that converts raw text to line-by-line.
+Added node sc_repeater for playing packets out multiple times.
+Added node sc_exit which exit()s on end-of-stream.
+Added node sc_pacer that forwards packets in realtime.
+Added node sc_ts_adjust to adjust packet timestamps.
+Added node sc_rate_monitor to report rate+bandwidth via solar_capture_monitor.
+Added node sc_tracer to aid debug.
+Added node sc_sim_work to chew the CPU.
+Purge log directories when they get old or the pid recycles.
+
+
+solarcapture-1.0.3
+------------------
+
+bug39152: Fix bug in handling of jumbo frames.
+bug39225: Fix crash bug when RSS is combined with physical address mode.
+
+
+solarcapture-1.0.2
+------------------
+
+bug37661: Added solar_capture option on_write_error.
+bug37661: Exit on error creating new file (by default).
+bug37621: Improve precision of timestamps from sc_arista_ts node.
+bug37437: Fix bug that caused us to change affinity of the setup thread.
+bug37437: Ensure we always reset affinity back after error.
+bug36695: Fix bug in sc_writer component handling of snapped packets.
+cleanup: Log dlerror() message when dlopen() fails.
+task26601: Add export "C" to headers to support c++ elegantly.
+cleanup: Fix missing attr arg to new_session() function in python bindings.
+bug35900: Fix failure when attempting to join multicast group >1 times.
+bug38512: Cope with duplicate keyframes from Arista switches.
+
+
+solarcapture-1.0.1
+------------------
+
+bug35680: Fix pcap output file corruption with rotate_file_size option.
+bug35695: Fix node lookup; factory should be named foo_sc_node_factory.
+bug35713: Fix limit of approx 500k buffers.  Limit now approx 250,000,000.
+
+task35702: Improve rotate_seconds option -- create file per interval.
+
+
+solarcapture-1.0.0
+------------------
+
+First release.
+

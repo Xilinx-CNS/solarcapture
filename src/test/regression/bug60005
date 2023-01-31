@@ -1,0 +1,47 @@
+#! /usr/bin/python2
+
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+import os, sys, time
+import solar_capture
+
+# Regression test for pcap_packer pool dry corner cases.
+#
+# Interesting cases:
+#
+# n_bufs=4, rotate_size=66000:
+#   sc_pcap_handle_backlog called with st->pkt == NULL and pool dry
+#
+# n_bufs=16, rotate_size=459000:
+#   do_partial_flush called with st->pkt == NULL
+
+def main(size=1500, buf_size=32767, n_bufs=32, rotate_size=100000):
+    session = solar_capture.new_session()
+    thread = session.new_thread()
+
+    fwd = thread.new_node('sc_pool_forwarder')
+    pktgen = thread.new_node('sc_pktgen', args={'size': str(size)})
+
+    wr_args = {'filename': '/tmp/bug60005.pcap', 'rotate_file_size': rotate_size}
+    wr_attr = {'n_bufs_tx': n_bufs, 'buf_size_pcap': buf_size}
+    writer = thread.new_node('sc_writer', args=wr_args, attr=wr_attr)
+
+    app = thread.new_node('sc_append_to_list', args={'init_list': 1})
+
+    fwd.connect(pktgen).connect(writer).connect("#packed", app)
+
+    session.go()
+    while True:
+        time.sleep(1)
+
+if __name__ == '__main__':
+    args = {}
+    for arg in sys.argv[1:]:
+        if '=' not in arg:
+            arg += '=1'
+        k, v = arg.split('=', 1)
+        if v.isdigit():
+            v = int(v)
+        args[k] = v
+    main(**args)

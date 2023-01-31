@@ -1,0 +1,74 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+me=$(basename "$0")
+bin=$(cd "$(dirname "$0")" && /bin/pwd)
+
+sd_usage_msg() {
+  echo
+  echo "usage:"
+  echo "  $me <command> <command-args>"
+  echo
+  echo "The environment variable SC_PCAP_THREAD can be used to cause"
+  echo "solar_libpcap to create an additional thread, allowing capture and"
+  echo "processing to be done outside of the pcap application thread and so"
+  echo "can improve performance.  By default solar_libpcap will not create any"
+  echo "additional threads."
+  echo
+  echo "It can be specified in two ways:"
+  echo "Set to a single int to create the additional thread with affinity int,"
+  echo "regardless of interface used."
+  echo "Set to a comma separated list of interface=int to specify the affinity"
+  echo "of the additional thread for each interface where an additional thread"
+  echo "should be used."
+  echo
+  echo "Note that specifying an affinity value of -1 will create the additional"
+  echo "thread, but will not set a specific cpu core affinity."
+}
+
+sd_usage_error() {
+  sd_usage_msg >&2
+  exit 1
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help)
+      sd_usage_msg
+      exit 0
+      ;;
+    -*)
+      sd_usage_error
+      ;;
+    *)
+      break
+      ;;
+  esac
+  shift
+done
+
+[ $# -gt 0 ] || sd_usage_error
+
+SC_DIR=$(cd "$bin/.." && /bin/pwd)
+if [ -z "$SHM_SOURCE" ]; then
+    SHM_SOURCE="/var/run/solarsystem/capture_shm"
+fi
+
+if [ -r $SHM_SOURCE ]; then
+    . $SHM_SOURCE
+fi
+
+dir="$SC_DIR/src/lib/pcap"
+if ! [ -d "$dir" ]; then
+  dir="/usr/lib64/solar_capture/libpcap:/usr/lib/solar_capture/libpcap:/usr/lib/x86_64-linux-gnu/solar_capture/libpcap"
+fi
+
+if [ -n "$LD_LIBRARY_PATH" ]; then
+  LD_LIBRARY_PATH="$dir:$LD_LIBRARY_PATH"
+else
+  LD_LIBRARY_PATH="$dir"
+fi
+export LD_LIBRARY_PATH
+
+exec "$@"

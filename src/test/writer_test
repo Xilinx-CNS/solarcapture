@@ -1,0 +1,80 @@
+#! /usr/bin/python2
+
+# SPDX-License-Identifier: MIT
+# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+import os, sys, time, signal
+
+import solar_capture
+
+def make_source(thread, idx, **kwargs):
+    pktgen_args = {
+        'pps': '1',
+        'size': '60',
+        'sport': str(idx),
+        'dport': str(idx),
+        }
+    pktgen_args.update(kwargs)
+
+    fwd = thread.new_node('sc_pool_forwarder')
+    pktgen = thread.new_node('sc_pktgen', args=pktgen_args)
+    pacer = thread.new_node('sc_pacer')
+    stopcock = thread.new_node('sc_stopcock')
+    fwd.connect(pktgen).connect(pacer).connect(stopcock)
+    return stopcock
+
+def setup_signal_handler(thread, stopcocks):
+    r_fd, w_fd = os.pipe()
+    fdr = thread.new_node('sc_fd_reader', args={'fd': r_fd})
+    node = fdr.connect(stopcocks[0], "ctl")
+    for stopcock in stopcocks[1:]:
+        node = node.connect("ctl", stopcock, "ctl")
+
+    def signal_handler(signum, frame):
+        print "Caught signal", signum
+        os.close(w_fd)
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+
+def main(pcap='/tmp/foo.pcap', sources=3, multi_in=True, multi_out=None,
+         **pktgen_args):
+    if multi_out is None:
+        multi_out = multi_in
+    assert not (multi_out and not multi_in) # multi_out reuqires multi_in
+
+    session = solar_capture.new_session()
+    thread = session.new_thread()
+
+    stopcocks = [make_source(thread, i, **pktgen_args) for i in range(sources)]
+    print "Made", len(stopcocks), "sources"
+    setup_signal_handler(thread, stopcocks)
+
+    writer = thread.new_node('sc_writer', args={'filename': pcap})
+    for i, stopcock in enumerate(stopcocks):
+        name = str(i) if multi_in else ""
+        stopcock.connect(writer, name)
+
+    exiter = thread.new_node('sc_exit')
+    if multi_out:
+        for i in range(sources):
+            tracer = thread.new_node('sc_tracer', args={'mode': 'hexdump'},
+                                     attr={'name': str(i)})
+            writer.connect(str(i), tracer).connect(exiter)
+    else:
+        tracer = thread.new_node('sc_tracer', args={'mode': 'hexdump'})
+        writer.connect(tracer).connect(exiter)
+
+    session.go()
+    while True:
+        time.sleep(1)
+
+if __name__ == '__main__':
+    args = {}
+    for arg in sys.argv[1:]:
+        k, v = arg.split('=', 1)
+        if v.isdigit():
+            v = int(v)
+        args[k] = v
+
+    main(**args)

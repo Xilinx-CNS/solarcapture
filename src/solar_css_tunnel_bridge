@@ -1,0 +1,86 @@
+#!/usr/bin/python2
+'''
+SPDX-License-Identifier: MIT
+X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+'''
+
+import sys, os, time
+import optparse
+
+BUF_SIZE = 1 << 20 # Default CSS block size is 1Mbyte
+
+usage_text = """
+  %prog [options] <css-server>/<stream-name> <interface>
+
+Receives packets from a CSS stream over a TCP tunnel and forwards
+them on the specified interface, with optional rate-limiting.
+"""
+
+
+def doit(options, server, stream, interface):
+    import solar_capture as sc
+    scs = sc.new_session()
+    thrd = scs.new_thread()
+
+    tunnel_attr = {'buf_size': options.buf_size}
+    tunnel_args = dict(passive_open=0,
+                       server_name=server,
+                       server_port="4500")
+    if not options.raw_tunnel:
+        tunnel_args['remote_args'] = "stream_name=%s" % stream
+    tunnel = thrd.new_node('sc_tunnel', args=tunnel_args, attr=tunnel_attr)
+
+    encap = None
+    if options.cpacket:
+        encap = thrd.new_node('sc_cpacket_encap')
+
+    shaper_args = dict()
+    if options.max_pps > 0:
+        shaper_args['max_pps'] = options.max_pps
+    if options.max_bps > 0:
+        shaper_args['max_bps'] = options.max_bps
+    if shaper_args:
+        shaper = thrd.new_node('sc_token_bucket_shaper', args=shaper_args)
+
+    pipe = tunnel.connect( thrd.new_node('sc_ps_unpacker') )
+    if encap:
+        pipe = pipe.connect(encap)
+    if shaper_args:
+        pipe = pipe.connect(shaper)
+    pipe = pipe.connect(to_interface=interface)
+
+    scs.go()
+    while True:
+        time.sleep(1000)
+
+
+def main(args):
+    op = optparse.OptionParser(usage=usage_text)
+    op.add_option('--live', action='store_true',
+                  help='stream captured packets in real-time', default=False)
+    op.add_option('--cpacket', action='store_true',
+                  help='add cpacket encapsulation', default=False)
+    op.add_option('--max-pps', action='store',
+                  help='limit packet rate (packets per sec)', default=-1.0)
+    op.add_option('--max-bps', action='store',
+                  help='limit bandwidth (bits per sec)', default=-1.0)
+    op.add_option('--raw-tunnel', action='store_true',
+                  help='test mode: use raw sc_tunnel', default=False)
+    op.add_option('--buf-size', type='int', help='CSS buffer size',
+                  default=BUF_SIZE)
+
+    (options, args) = op.parse_args(args)
+    if len(args) != 2:
+        op.error("expected two arguments (got %d)" % len(args))
+    if not options.live:
+        op.error("--live is required")
+    server_stream, interface = args
+    if '/' not in server_stream:
+        op.error("expected <css-server>/<stream-name>")
+    server, stream = server_stream.split('/', 1)
+
+    doit(options, server, stream, interface)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

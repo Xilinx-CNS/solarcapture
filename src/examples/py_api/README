@@ -1,0 +1,39 @@
+SPDX-License-Identifier: MIT
+X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+Introduction
+============
+
+ This example illustrates basic use of the SolarCapture python bindings.
+ The python bindings can be used to embed SolarCapture into a python
+ application.  The python bindings are used to setup and control a packet
+ processing pipeline.
+
+ Note that custom packet processing nodes can only be written in C (not
+ python), but they can then be incorporated into a SolarCapture session
+ using the python bindings.
+
+ You will find further examples using the python bindings, such as in the
+ examples/forwarding subdirectory.
+
+ The example itself is an extremely simple topology, consisting of just
+ a VI to capture packets and a writer node to output captured packets
+ to a pcap file.
+
+
+Command line usage
+==================
+
+ The example can be invoked from the command line.  As it captures all
+ traffic on an interface it will require root privileges.  Both the
+ interface to capture on, and the file to output to need to be 
+ specified on the command line. 
+
+ For example, to capture all traffic arriving on interface eth2:
+
+   $ python py_api_1.py eth2 ./eth2.pcap
+
+ There is an optional argument which can be provided to cause the VI
+ and writer to run in separate threads:
+
+   $ python py_api_1.py eth2 ./eth2.pcap 1

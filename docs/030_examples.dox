@@ -1,0 +1,138 @@
+// SPDX-License-Identifier: MIT
+// X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+
+/**************************************************************************
+* Examples page
+*************************************************************************/
+/*! \page examples Examples
+
+Solarflare SolarCapture comes with a range of example applications - including
+source code and make files.
+
+| Application           | Description
+| :-------------------- | :------------------------------------------------
+| \ref c_api            | Illustrates how to embed SolarCapture in a C application
+| \ref c_api_export     | Illustrates how to export content of packets for external processing
+| \ref extensions_api   | Illustrates the SolarCapture extensions API
+| \ref forwarding       | Illustrates how to forward packets between network ports
+| \ref py_api           | Illustrates basic use of the SolarCapture python bindings
+| \ref unmanaged        | Shows ways to pass packet buffers between threads managed by SolarCapture and threads managed by the application
+
+\section c_api c_api
+
+This example illustrates how to embed SolarCapture in a C application.
+Please see the source for usage instructions and for further details.
+
+\section c_api_export c_api_export
+
+This example illustrates how to export content of packets captured with
+SolarCapture C API for external processing.
+
+In the scenario there are n threads created and the incoming traffic is split
+so that each of the threads receives subset of the traffic based on
+source and destination IP addresses' hash.
+
+A sample implementation of SolarCapture custom node is provided that perform
+exporting and splitting of the traffic.
+
+Please see the source for usage instructions and for further details.
+
+\section extensions_api extensions_api
+
+These examples illustrate the SolarCapture extensions API.  The extensions
+API let's you write custom packet processing nodes, which can then be used
+in a SolarCapture application.
+
+Nodes typically receive packets on their inputs, do something useful with
+the packets and forward them to their outputs.  Nodes may also generate
+new packets using buffers from a packet pool.
+
+The 'reflect' examples all do roughly the same job: They switch the source
+and destination Ethernet MAC addresses.  The different versions show
+different features of the extensions API.
+
+Please see the source for usage instructions and for further details.
+
+\section forwarding forwarding
+
+The examples in this directory illustrate how to forward packets between
+network ports.
+
+\subsection trivial_bridge trivial_bridge.py
+
+This example simply connects ports together in pairs.  Each command line
+argument is a pair of interfaces that are connected together with a
+uni-directional channel.
+
+Please see the source for usage instructions and for further details.
+
+\subsection bpf_firewall bpf_firewall.py
+
+This example implements a very simple firewall.  It forwards packets from
+one network interface to another, discarding packets that match a filter
+specified with BPF syntax.
+
+Please see the source for usage instructions and for further details.
+
+\subsection reflect reflect.py
+
+This example shows how packets can be modified before they are forwarded.
+It uses the 'reflect' node from the 'extensions_api' sample to swap the
+MAC addresses of received packets, and sends them back out of the
+interface they were received on.
+
+Please see the source for usage instructions and for further details.
+
+\section py_api py_api
+
+This example illustrates basic use of the SolarCapture python bindings.
+The python bindings can be used to embed SolarCapture into a python
+application.  The python bindings are used to setup and control a packet
+processing pipeline.
+
+Note that custom packet processing nodes can only be written in C (not
+python), but they can then be incorporated into a SolarCapture session
+using the python bindings.
+
+The example itself is an extremely simple topology, consisting of just
+a VI to capture packets and a writer node to output captured packets
+to a pcap file.
+
+Please see the source for usage instructions and for further details.
+
+\note You will find further examples using the python bindings, such as in the
+\ref forwarding subdirectory.
+
+\section unmanaged unmanaged
+
+The examples in this directory show ways to pass packet buffers between
+threads managed by SolarCapture and threads managed by the application.
+
+Every component in SolarCapture has to be associated by an sc_thread
+object.  By default sc_threads are managed by SolarCapture, which means
+that SolarCapture will create the underlying OS thread and manage its
+lifetime etc.  An unmanaged sc_thread is used when you want to use
+SolarCapture components in a thread created by your application.
+Unmanaged threads are created by setting the thread attribute 'managed' to
+0.
+
+\subsection unmanaged_mailbox unmanaged_mailbox.c
+
+This is the easiest way to pass packets out of SolarCapture.  Mailboxes
+are the mechanism SolarCapture uses to pass packets between threads.  To
+pass packets to an unmanaged thread you just need an unmanaged mailbox.
+
+Please see the source for usage instructions and for further details.
+
+\subsection unmanaged_thread unmanaged_thread.c
+
+This example shows how an unmanaged thread can work with other SolarCapture
+components, including nodes and VIs.  In this example a custom node is used
+to place packets onto a list, which is drained by the foreground
+application thread.  Note that the `deliver_pkts` node shown in this
+example is essentially the same as the built-in \noderef{sc_append_to_list}
+node.
+
+Please see the source for usage instructions and for further details.
+
+*/
