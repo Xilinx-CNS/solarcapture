@@ -10,7 +10,7 @@ class OffsetMismatch(Exception):
     pass
 #####################################################################
 def strip_nuls(str):
-    idx = str.find('\0')
+    idx = str.find(b'\0')
     if idx >= 0:
         str = str[:idx]
     return str

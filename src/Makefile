@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: MIT
-# X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+# X-SPDX-Copyright-Text: Copyright (C) 2023, Advanced Micro Devices, Inc.
 
-# SC_PYTHON is used to specify a custom python 2.x binary path.
-# SC_PYTHON_CONFIG is used to specify a custom python 2.x -config binary
-# path.
+# SC_PYTHON is used to specify a custom python binary path.
+# SC_PYTHON_CONFIG is used to specify a custom python-config binary path
+# (Both must be python3, python2 is no longer supported)
 
 TOP_DIR         := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))..)
 SRCDIR          := ${TOP_DIR}/src
@@ -159,10 +159,10 @@ BUILTIN_OBJS	:= components/sc_writer.o		\
 BUILTIN_DBG_OBJS:= $(patsubst %.o,%.dbg.o,$(BUILTIN_OBJS))
 
 ifndef SC_PYTHON
-SC_PYTHON	:= python2
+SC_PYTHON	:= /usr/bin/python3
 endif
 ifndef SC_PYTHON_CONFIG
-SC_PYTHON_CONFIG := python2-config
+SC_PYTHON_CONFIG := /usr/bin/python3-config
 endif
 PYTHON_CFLAGS	:= $(shell $(SC_PYTHON_CONFIG) --cflags 2>/dev/null)
 PYTHON_LIBS	:= $(shell $(SC_PYTHON_CONFIG) --libs 2>/dev/null)

@@ -3,8 +3,8 @@ SPDX-License-Identifier: MIT
 X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
 '''
 
-import solar_capture_c
-import cli
+from . import solar_capture_c
+from . import cli
 import os, stat, socket, re, types
 
 
@@ -47,18 +47,19 @@ class SCMeta(type):
         c_obj = getattr(solar_capture_c, name)
         if callable(c_obj):
             def f(*args, **kwargs):
+                if len(args)>0 and type(args[0]) == bytes:
+                  args = (str(args[0],'utf-8'),) + args[1:]
                 try:
                     return c_obj(*args, **kwargs)
-                except solar_capture_c.SCError, e:
+                except solar_capture_c.SCError as e:
                     raise SCError(*e.args)
             return f
         else:
             return c_obj
 
-
-class sc(object):
-    __metaclass__ = SCMeta
-
+# And apply that to the sc class that we export. In python 3 we use metaclass.
+class sc(metaclass=SCMeta):
+    pass
 
 discard_opts = {
     'NONE'            : 0,
@@ -303,8 +304,7 @@ class Node(object):
             assert isinstance(node_factory, NodeFactory)
             assert isinstance(args, dict)
             for val in args.values():
-                assert isinstance(val, int) or isinstance(val, long) or \
-                       isinstance(val, str) or isinstance(val, float)
+                assert isinstance(val, (int,str,float))
             ret = sc.node_alloc(attr, thread, node_factory.factory_name,
                                 node_factory.library_name, args)
         if type(ret) is str:

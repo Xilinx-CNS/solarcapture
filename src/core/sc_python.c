@@ -13,6 +13,15 @@
 #include <sys/types.h>
 #include <grp.h>
 
+/* Python2 implemented this as PyString_AsString, for python3 we have to go
+   via utf8.
+   This will return a failure if non-ascii unicode gets used.
+*/
+const char* pystring_to_cstring(PyObject* s) {
+  /* Use Python to do the unicode translation for us */
+  return PyUnicode_AsUTF8(s);
+}
+
 static PyObject* SCError;
 
 
@@ -114,7 +123,7 @@ static int n_vis;
 static int sc_py_get_index(PyObject* obj, const char* index_name)
 {
   PyObject* o = PyObject_GetAttrString(obj, index_name);
-  int rc = o ? PyInt_AsLong(o) : -1;
+  int rc = o ? PyLong_AsLong(o) : -1;
   Py_XDECREF(o);
   return rc;
 }
@@ -196,16 +205,13 @@ struct sc_attr* sc_attr_from_py(PyObject* attr_dict)
     return NULL;
   }
   while( PyDict_Next(attr_dict, &pos, &k, &v) ) {
-    if( (name = PyString_AsString(k)) == NULL ) {
+    if( (name = pystring_to_cstring(k)) == NULL ) {
       PyErr_SetString(PyExc_TypeError, "attr keys must be strings");
       goto error;
     }
-    if( PyInt_Check(v) || PyLong_Check(v) ) {
+    if( PyLong_Check(v) ) {
       int64_t lv;
-      if( PyInt_Check(v) )
-        lv = PyInt_AS_LONG(v);
-      else
-        lv = PyLong_AsLongLong(v);
+      lv = PyLong_AS_LONG(v);
       if( (rc = sc_attr_set_int(attr, name, lv)) < 0 ) {
         if( rc == -EOVERFLOW )
           snprintf(errmsg, 100, "attribute '%s' value %ld overflow", name, lv);
@@ -225,8 +231,8 @@ struct sc_attr* sc_attr_from_py(PyObject* attr_dict)
         }
       }
     }
-    else if( PyString_Check(v) ) {
-      const char* val = PyString_AsString(v);
+    else if( PyUnicode_Check(v) ) {
+      const char* val = pystring_to_cstring(v);
       if( (rc = sc_attr_set_from_str(attr, name, val)) < 0 ) {
         if( rc == -ENOMSG )
           snprintf(errmsg, 100, "attribute %s: invalid value '%s'",
@@ -283,7 +289,7 @@ static PyObject* session_alloc(PyObject* self, PyObject* args)
   int session_i = n_sessions;
   ++n_sessions;
 
-  return PyInt_FromLong(session_i);
+  return PyLong_FromLong(session_i);
 }
 
 
@@ -343,7 +349,7 @@ static PyObject* session_run(PyObject* self, PyObject* args)
     return NULL;
   if( ALLOW_THREADS(sc_session_run(tg, &exit_code)) < 0 )
     return raise_session_err(tg);
-  return PyInt_FromLong(exit_code);
+  return PyLong_FromLong(exit_code);
 }
 
 
@@ -400,7 +406,7 @@ static PyObject* thread_alloc(PyObject* self, PyObject* args)
   int thread_i = n_threads;
   ++n_threads;
 
-  return PyInt_FromLong(thread_i);
+  return PyLong_FromLong(thread_i);
 }
 
 
@@ -430,7 +436,7 @@ static PyObject* vi_group_alloc(PyObject* self, PyObject* args)
   int set_i = n_vi_groups;
   ++n_vi_groups;
 
-  return PyInt_FromLong(set_i);
+  return PyLong_FromLong(set_i);
 }
 
 
@@ -471,15 +477,15 @@ static PyObject* mailbox_set_recv(PyObject* self, PyObject* args)
   struct sc_mailbox* mailbox;
   struct sc_node* node;
   PyObject *mailbox_obj, *node_obj, *to_name_obj;
-  char* to_name = NULL;
+  char const* to_name = NULL;
 
   if( ! PyArg_ParseTuple(args, "OOO", &mailbox_obj,
                          &node_obj, &to_name_obj)  ||
       ! sc_py_get_mailbox(mailbox_obj, &mailbox)   ||
       ! sc_py_get_node(node_obj, &node)             )
     return NULL;
-  if( PyString_Check(to_name_obj) )
-    to_name = PyString_AsString(to_name_obj);
+  if( PyUnicode_Check(to_name_obj) )
+    to_name = pystring_to_cstring(to_name_obj);
   TRY(sc_mailbox_set_recv(mailbox, node, to_name));
   Py_RETURN_NONE;
 }
@@ -511,15 +517,11 @@ static int get_and_check_args(const struct sc_node_factory* factory,
 
   for( i = 0; PyDict_Next(args_dict, &pos, &k, &v); ++i ) {
     /* NB. This returns a pointer to the internal string, not a copy. */
-    if( (args[i].name = PyString_AsString(k)) == NULL )
+    if( (args[i].name = pystring_to_cstring(k)) == NULL )
       return -1;
-    if( PyString_Check(v) ) {
-      args[i].val.str = PyString_AsString(v);
+    if( PyUnicode_Check(v) ) {
+      args[i].val.str = pystring_to_cstring(v);
       args[i].type = SC_PARAM_STR;
-    }
-    else if( PyInt_Check(v) ) {
-      args[i].val.i = PyInt_AS_LONG(v);
-      args[i].type = SC_PARAM_INT;
     }
     else if( PyLong_Check(v) ) {
       args[i].val.i = PyLong_AsLongLong(v);
@@ -565,12 +567,12 @@ static PyObject* node_alloc(PyObject* self, PyObject* py_args)
   if( sc_node_factory_lookup(&factory, tg, factory_name, factory_lib) != 0 ) {
     switch( errno ) {
     case ELIBACC:
-      return PyString_FromFormat("Unable to open library '%s'", factory_lib);
+      return PyBytes_FromFormat("Unable to open library '%s'", factory_lib);
     case ENOENT:
-      return PyString_FromFormat("No factory '%s' in library '%s'",
+      return PyBytes_FromFormat("No factory '%s' in library '%s'",
                                  factory_name, factory_lib ? factory_lib : "");
     default:
-      return PyString_FromFormat("sc_node_factory_lookup(%s, %s) failed "
+      return PyBytes_FromFormat("sc_node_factory_lookup(%s, %s) failed "
                                  "(%d %s)", factory_lib ? factory_lib : "",
                                  factory_name, errno, strerror(errno));
     }
@@ -596,7 +598,7 @@ static PyObject* node_alloc(PyObject* self, PyObject* py_args)
   int node_i = n_nodes;
   ++n_nodes;
 
-  return PyInt_FromLong(node_i);
+  return PyLong_FromLong(node_i);
 }
 
 
@@ -626,14 +628,15 @@ static PyObject* node_alloc_from_str(PyObject* self, PyObject* py_args)
   nodes[n_nodes] = node;
   int node_i = n_nodes;
   ++n_nodes;
-  return PyInt_FromLong(node_i);
+  return PyLong_FromLong(node_i);
 }
 
 
 static PyObject* node_add_link(PyObject* self, PyObject* args)
 {
   PyObject *node_obj, *link_node_obj, *to_name_obj;
-  char *link_name, *to_name = NULL;
+  char *link_name = NULL;
+  char const* to_name = NULL;
   struct sc_node* link_node;
   struct sc_node* node;
 
@@ -642,8 +645,8 @@ static PyObject* node_add_link(PyObject* self, PyObject* args)
       ! sc_py_get_node(node_obj, &node)                            ||
       ! sc_py_get_node(link_node_obj, &link_node)                   )
     return NULL;
-  if( PyString_Check(to_name_obj) )
-    to_name = PyString_AsString(to_name_obj);
+  if( PyUnicode_Check(to_name_obj) )
+    to_name = pystring_to_cstring(to_name_obj);
   struct sc_session* tg = sc_thread_get_session(sc_node_get_thread(node));
   if( ALLOW_THREADS(sc_node_add_link(node, link_name,
                                      link_node, to_name)) < 0 )
@@ -662,11 +665,11 @@ static PyObject* node_add_info(PyObject* self, PyObject* args)
       ! sc_py_get_node(node_obj, &node)                                    )
     return NULL;
 
-  if( PyInt_Check(field_val) || PyLong_Check(field_val) )
+  if( PyLong_Check(field_val) )
     sc_node_add_info_int(node, field_name,
-                         PyInt_AsUnsignedLongLongMask(field_val));
-  else if( PyString_Check(field_val) )
-    sc_node_add_info_str(node, field_name, PyString_AsString(field_val));
+                         PyLong_AsUnsignedLongLongMask(field_val));
+  else if( PyUnicode_Check(field_val) )
+    sc_node_add_info_str(node, field_name, pystring_to_cstring(field_val));
   else
     return PyErr_Format(PyExc_TypeError, "expected string or integer");
 
@@ -699,7 +702,7 @@ static PyObject* vi_alloc(PyObject* self, PyObject* args)
   vis[n_vis] = vi;
   int vi_i = n_vis;
   ++n_vis;
-  return PyInt_FromLong(vi_i);
+  return PyLong_FromLong(vi_i);
 }
 
 
@@ -728,7 +731,7 @@ static PyObject* vi_alloc_from_group(PyObject* self, PyObject* args)
   vis[n_vis] = vi;
   int vi_i = n_vis;
   ++n_vis;
-  return PyInt_FromLong(vi_i);
+  return PyLong_FromLong(vi_i);
 }
 
 
@@ -743,8 +746,8 @@ static PyObject* vi_set_recv_node(PyObject* self, PyObject* args)
       ! sc_py_get_vi(vi_obj, &vi)                                       ||
       ! sc_py_get_node(node_obj, &node)                                  )
     return NULL;
-  if( PyString_Check(to_name_obj) )
-    to_name = PyString_AsString(to_name_obj);
+  if( PyUnicode_Check(to_name_obj) )
+    to_name = pystring_to_cstring(to_name_obj);
   TRY(sc_vi_set_recv_node(vi, node, to_name));
   Py_RETURN_NONE;
 }
@@ -758,7 +761,7 @@ static PyObject* vi_get_interface_name(PyObject* self, PyObject* args)
   if( ! PyArg_ParseTuple(args, "O", &vi_obj) ||
       ! sc_py_get_vi(vi_obj, &vi)             )
     return NULL;
-  return PyString_FromString(sc_vi_get_interface_name(vi));
+  return PyBytes_FromString(sc_vi_get_interface_name(vi));
 }
 
 
@@ -810,12 +813,12 @@ static PyObject* sc_stream_get_mcast_group(PyObject* self, PyObject* args)
   if( __sc_stream_extract_mcast_group(stream, &dhost) != 0 )
     return Py_None;
   else if( __sc_stream_extract_vlan_id(stream, &vlan_id) != 0 )
-    return PyString_FromFormat("%d.%d.%d.%d", dhost >> 24,
+    return PyBytes_FromFormat("%d.%d.%d.%d", dhost >> 24,
                                (dhost >> 16) & 0xFF,
                                (dhost >> 8) & 0xFF,
                                dhost & 0xff);
   else
-    return PyString_FromFormat("vid=%d,%d.%d.%d.%d", vlan_id,
+    return PyBytes_FromFormat("vid=%d,%d.%d.%d.%d", vlan_id,
                                dhost >> 24,
                                (dhost >> 16) & 0xFF,
                                (dhost >> 8) & 0xFF,
@@ -911,7 +914,7 @@ static PyObject* attr_doc(PyObject* self, PyObject* args)
     return NULL;
   }
   for( i = 0; i < docs_len; ++i )
-    PyList_SET_ITEM(list, i, PyString_FromString(docs[i]));
+    PyList_SET_ITEM(list, i, PyBytes_FromString(docs[i]));
   free(docs);
   return list;
 }
@@ -961,13 +964,20 @@ static PyMethodDef solar_capture_c_methods[] = {
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
-
-PyMODINIT_FUNC initsolar_capture_c(void)
+PyMODINIT_FUNC PyInit_solar_capture_c(void)
 {
-  PyObject* module = Py_InitModule("solar_capture_c",
-                                   solar_capture_c_methods);
+  static struct PyModuleDef module_definition = {
+    PyModuleDef_HEAD_INIT,
+    "solar_capture_c",          /* name */
+    "",                         /* docs */
+    -1,                         /* reserved size */
+    solar_capture_c_methods
+  };
+  PyObject* module = PyModule_Create(&module_definition);
+
   if( module == NULL )
-    return;
+    return NULL;
+
   PyModule_AddIntConstant(module, "SC_CSUM_ERROR", SC_CSUM_ERROR);
   PyModule_AddIntConstant(module, "SC_CRC_ERROR", SC_CRC_ERROR);
   PyModule_AddIntConstant(module, "SC_TRUNCATED", SC_TRUNCATED);
@@ -977,4 +987,6 @@ PyMODINIT_FUNC initsolar_capture_c(void)
 
   SCError = PyErr_NewException("solar_capture_c.SCError", NULL, NULL);
   PyModule_AddObject(module, "SCError", SCError);
+
+  return module;
 }

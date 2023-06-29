@@ -78,11 +78,11 @@ def playpen():
         ]
 
     widths = [0] * 3
-    print fmt_table(test_data, col_widths=widths)
+    print( fmt_table(test_data, col_widths=widths) )
 
     l = string.ljust
     r = string.rjust
-    print fmt_table(test_data, col_widths=widths,
-                    justify_field=[r, l, l], colsep=' | ')
+    print( fmt_table(test_data, col_widths=widths,
+                    justify_field=[r, l, l], colsep=' | ') )
 
 #playpen()

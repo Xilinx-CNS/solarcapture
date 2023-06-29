@@ -18,7 +18,7 @@ class InstanceBase(shm.CompoundInstance):
     def __getattr__(self, name):
         try:
             return super(InstanceBase, self).__getattr__(name)
-        except AttributeError, e:
+        except AttributeError as e:
             # The code here allows us to write things like "vi.pool.n_bufs".
             # If we are accessing field 'foo', and the object has a field
             # called 'foo_id', then we return the appropriate object.
@@ -110,7 +110,9 @@ class Session(object):
         sc_types_f = os.path.join(self.dir, 'sc_types')
         globals = dict(sw=shm)
         self.type_map = dict()
-        execfile(sc_types_f, globals, self.type_map)  # ?? fixme: insecure
+        with open(sc_types_f) as f:
+          code = compile(f.read(), sc_types_f, 'exec')
+          exec(code, globals, self.type_map)            # ?? fixme: insecure
 
     def __sc_info_line(self, line, sc_info_f):
         fs = line.split()

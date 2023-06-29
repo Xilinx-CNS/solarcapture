@@ -185,7 +185,7 @@ def iter_args(known_args, config, args, handle_unknown_arg):
             elif k in known_args:
                 try:
                     known_args[k].handler(config, k, v)
-                except (KeyError, ValueError), e:
+                except (KeyError, ValueError) as e:
                     err("Bad value %r for key %r" % (v, k))
             elif handle_unknown_arg:
                 handle_unknown_arg(config, k, v)

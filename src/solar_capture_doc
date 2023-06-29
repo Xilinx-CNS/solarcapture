@@ -1,7 +1,7 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 '''
 SPDX-License-Identifier: MIT
-X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
+X-SPDX-Copyright-Text: Copyright (C) 2023, Advanced Micro Devices, Inc.
 '''
 
 import sys, os, textwrap
@@ -24,6 +24,8 @@ usage_text = '''
 
 
 def out(msg):
+    if type(msg) == bytes:
+      msg = str(msg,'utf-8')
     sys.stdout.write(msg)
 
 
@@ -56,22 +58,23 @@ def get_attrs(obj=None):
         a.name, a.type, a.status, a.default, a.objects, a.doc = docs
         if a.status in filter_out:
             continue
-        a.objects = a.objects.split(',')
+        a.objects = a.objects.split(b',')
         if obj is None or obj in a.objects or "sc_"+obj in a.objects:
             attrs[a.name] = a
     return attrs
 
 
 def doc_attr(a):
-    l1 = "Attribute: %s (%s)" % (a.name, a.type)
-    out(l1 + '\n')
-    out("-" * len(l1) + '\n')
-    out("   Status: %s\n" % (a.status,))
-    out("  Default: %s\n" % (a.default,))
-    out("  Objects: %s\n" % (" ".join(a.objects),))
+    l1 = b"Attribute: %s (%s)" % (a.name, a.type)
+    out(l1 + b'\n')
+    out(b"-" * len(l1) + b'\n')
+    out(b"   Status: %s\n" % (a.status,))
+    out(b"  Default: %s\n" % (a.default,))
+    out(b"  Objects: %s\n" % (b" ".join(a.objects),))
     wrapper = textwrap.TextWrapper(initial_indent='  ',
                                    subsequent_indent='  ')
-    for para in a.doc.split('\n'):
+    for para in a.doc.split(b'\n'):
+        para = str(para,'utf-8')
         out('\n' + wrapper.fill(para) + '\n')
 
 
@@ -88,7 +91,7 @@ def cmd_list_attr(args):
         attrs = get_attrs()
     names = list(attrs.keys())
     names.sort()
-    out('\n'.join(names) + '\n')
+    out(b'\n'.join(names) + b'\n')
 
 
 def cmd_attr(args):
@@ -96,16 +99,15 @@ def cmd_attr(args):
         usage_err("topic 'attr' accepts zero or one arg")
     attrs = get_attrs()
     if len(args) > 0:
-        if args[0] in attrs:
-            a = attrs[args[0]]
+        name = bytes(args[0],'utf-8')
+        if name in attrs:
+            a = attrs[name]
             attrs = { a.name : a }
         else:
-            attrs = get_attrs(obj=args[0])
             if not attrs:
                 err("ERROR: '%s' is not an attribute name or an object "
                     "type\n" % args[0])
-    names = attrs.keys()
-    names.sort()
+    names = sorted(attrs.keys())
     for name in names:
         doc_attr(attrs[name])
         out("\n\n")
@@ -146,7 +148,7 @@ if __name__ == '__main__':
     try:
         main()
     except IOError:
-        # Likely in a pipeline and 
+        # Likely in a pipeline and
         ex = sys.exc_info()
         if ex[1].errno != errno.EPIPE:
             raise
