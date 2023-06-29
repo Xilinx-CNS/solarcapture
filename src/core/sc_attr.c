@@ -203,7 +203,7 @@ int sc_attr_set_int(struct sc_attr* attr, const char* name, int64_t val)
       break;
     }
   }
-  fprintf(stderr, "%s: ERROR: no such attribute '%s'\n", __func__, name);
+  fprintf(stderr, "%s: ERROR: value has wrong type for attribute '%s'\n", __func__, name);
   return -ENOENT;
 }
 
