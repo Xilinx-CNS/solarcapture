@@ -74,7 +74,7 @@ SC_LINK		:= -L$(SC_LIB) -Wl,-rpath,$(SC_BUILD)/$(SC_LIB) \
 SC_LINK		+= -lsolarcapture$(SC_VER_MAJ)
 
 CWARNINGS	:= -Wall -Wundef -Wstrict-prototypes -Wpointer-arith \
-		   -Wnested-externs
+		   -Wnested-externs -Wno-address-of-packed-member
 CXXWARNINGS	:= -Wall -Wundef -Wpointer-arith
 CFLAGS		:= -Werror $(CWARNINGS) -O2 -DNDEBUG
 CFLAGS_DBG	:= -Werror $(CWARNINGS)
