@@ -35,8 +35,8 @@ DOC_DIR         := usr/share/doc
 # SC_VER_BUILD is the commit hash.
 
 SC_VER_MAJ	:= 1
-SC_VER_MIN	:= 6
-SC_VER_REL	:= 10
+SC_VER_MIN	:= 7
+SC_VER_REL	:= 0
 # This gets a hash from the files we're using if we want to do that instead
 # SC_VER_BUILD    := $(shell { find ${SRCDIR} -regex ".*\.[ch]" | sort | xargs md5sum | md5sum | cut -d' ' -f1; } )
 # If we don't have a git tag, just say unknown
