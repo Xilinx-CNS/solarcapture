@@ -225,7 +225,7 @@ SC_PCAP_TGT	:= $(SC_LIB)/pcap/libpcap.so.$(PCAP_VER) $(SC_LIB)/pcap/libpcap.so.1
 LIBSC_TGT	:= $(SC_LIB)/$(LIBSC_LINKNAME) \
 		   $(SC_LIB_DBG)/$(LIBSC_LINKNAME)
 
-PYTHON_TGT	:= python/solar_capture_c.so
+PYTHON_TGT	:= python/solar_capture/solar_capture_c.so
 
 DEFAULT_TGT	:= ${LIBSC_TGT} ${PYTHON_TGT} \
 		   $(EXAMPLES) test_nodes $(TEST_APPS)
@@ -358,7 +358,7 @@ $(SC_LIB)/$(LIBSC_STATIC): \
 	rm -rf efvi_tmp
 
 
-python/solar_capture_c.so: $(PYTHON_OBJS) $(SC_LIB)/$(LIBSC_LINKNAME)
+$(PYTHON_TGT): $(PYTHON_OBJS) $(SC_LIB)/$(LIBSC_LINKNAME)
 	$(CC) -shared -g -Wl,-E $(PYTHON_OBJS) $(SC_LINK)	\
 		$(PYTHON_LIBS) -o $@
 
@@ -468,7 +468,7 @@ install_python:
 	install -m 644 $(srcscpy)/shm.py                   $(py_sitelib_dir)
 	install -m 644 $(srcscpy)/stats.py                 $(py_sitelib_dir)
 	install -m 644 $(srcscpy)/tabulate.py              $(py_sitelib_dir)
-	install -m 644 ${SRCDIR}/python/solar_capture_c.so $(py_sitelib_dir)
+	install -m 644 ${SRCDIR}/${PYTHON_TGT}             $(py_sitelib_dir)
 	mkdir -p $(py_sitelib_dir)_tools
 	install -m 644 $(srcscpy)_tools/__init__.py   $(py_sitelib_dir)_tools
 	install -m 644 $(srcscpy)_tools/dot.py        $(py_sitelib_dir)_tools
