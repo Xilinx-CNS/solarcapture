@@ -379,7 +379,7 @@ int sc_thread_alloc(struct sc_thread** sc_t, const struct sc_attr* attr,
 
   struct sc_allocator* ma;
   sc_allocator_alloc(&ma);
-  struct sc_thread* t = sc_allocator_calloc(ma, sizeof(*t));
+  struct sc_thread* t = sc_allocator_calloc(ma, sizeof(struct sc_thread));
   TEST(t);
   t->ma = ma;
   /* t->last_poll_did_something = 0; */

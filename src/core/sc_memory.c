@@ -6,13 +6,23 @@
 #include "internal.h"
 
 #include <sys/param.h>
-
+#include "execinfo.h"
 
 struct sc_allocator {
   char* start;
   char* block;
   char* block_end;
 };
+
+void dump_trace(void) {
+    /* Used to try and debug the 'fixme' in sc_allocator_calloc */
+    /* SOMEONE sometimes calls us for an impossibly large allocation, try to find out who */
+    const size_t max_depth = 1024;
+    void* buffer[max_depth];
+    const int calls = backtrace(buffer, max_depth);
+    backtrace_symbols_fd(buffer, calls, STDERR_FILENO);
+    exit(EXIT_FAILURE);
+}
 
 
 void sc_allocator_alloc(struct sc_allocator** out)
@@ -40,6 +50,8 @@ void sc_allocator_free(struct sc_allocator* ma)
 
 void* sc_allocator_calloc(struct sc_allocator* ma, size_t bytes)
 {
+  if ( bytes > (char*) ma->block_end -  (char*) ma->block )
+	dump_trace();
   TEST(bytes <= (char*) ma->block_end -  (char*) ma->block); /* ?? fixme */
   void* ret = ma->block;
   ma->block = (char*) ma->block + roundup(bytes, sizeof(void*));
