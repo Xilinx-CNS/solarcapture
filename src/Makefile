@@ -77,7 +77,7 @@ CWARNINGS	:= -Wall -Wundef -Wstrict-prototypes -Wpointer-arith \
 		   -Wnested-externs -Wno-address-of-packed-member
 CXXWARNINGS	:= -Wall -Wundef -Wpointer-arith
 CFLAGS		:= -Werror $(CWARNINGS) -O2 -DNDEBUG
-CFLAGS_DBG	:= -Werror $(CWARNINGS)
+CFLAGS_DBG	:= -Werror $(CWARNINGS) -rdynamic
 ifeq ($(STRIP_LIBS),1)
 CFLAGS_DBG	+= -O2
 STRIP		:= strip
