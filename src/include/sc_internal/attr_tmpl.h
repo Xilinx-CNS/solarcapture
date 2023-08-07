@@ -546,7 +546,7 @@ SC_ATTR(size, pool_size, stable, -1, "(depends; see description)",
         "the size of the pool is increased by the requested amount for each "
         "object (sc_vi or node) that uses the pool.")
 
-SC_ATTR(int, request_huge_pages, stable, 0, NULL,
+SC_ATTR(int, request_huge_pages, stable, 1, NULL,
         "sc_pool",
 
         "Setting this attribute to 1 causes the packet pool to use explicitly "
