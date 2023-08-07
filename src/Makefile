@@ -237,7 +237,7 @@ CORE_DBG_OBJS	:= $(patsubst %.o,%.dbg.o,$(CORE_OBJS))
 
 default_all: $(DEFAULT_TGT)
 
-all: $(DEFAULT_TGT) $(SC_PCAP_TGT)
+all: $(DEFAULT_TGT) $(SC_PCAP_TGT) docs_pdf
 
 libpcap: $(SC_PCAP_TGT)
 
@@ -248,14 +248,13 @@ libsolarcapture: $(SC_LIB)/$(LIBSC_STATIC)
 all_nonpython: ${LIBSC_TGT} ${SC_PCAP_TGT}
 all_python:    ${PYTHON_TGT}
 
-
 .PHONY: docs docs_pdf internal_docs test_nodes test_apps
 docs:
-	cd ../docs && rm -rf c_bindings && doxygen doxyfile_solar_capture
+	cd ../docs && rm -rf c_bindings && doxygen doxyfile_solar_capture || echo Unable to build documentation
 
 docs_pdf: docs
 	cd ../docs/c_bindings/latex && \
-		pdflatex refman.tex && pdflatex refman.tex
+		pdflatex refman.tex && pdflatex refman.tex || echo Unable to convert documentation to pdf
 
 internal_docs:
 	( cd ../docs && cat doxyfile_solar_capture ; echo "INTERNAL_DOCS=YES" ) | doxygen -
@@ -478,7 +477,6 @@ install_python:
 	install -m 644 ${DOCSDIR}/ReleaseNotes $(docdir)
 	install -m 644 ${DOCSDIR}/ChangeLog    $(docdir)
 
-	# HTML documentation requires "make doc"
 	mkdir -p ${docdir}/c_api
 	cp -pr ${DOCSDIR}/c_bindings/html/* ${docdir}/c_api || true
 	mkdir -p $(docdir)/examples/
@@ -542,7 +540,7 @@ install_internal: ${TEST_NODES} ${TEST_APPS}
 
 install_nonpython: install_core install_live install_pro
 
-tarball: install_python install_nonpython
+tarball: install_python install_nonpython docs_pdf
 	rm ${DESTDIR}/solar_capture-$(SC_VER_STR).tgz || true
 	tar czf solar_capture-$(SC_VER_STR).tgz -C ${DESTDIR} .
 	cp solar_capture-$(SC_VER_STR).tgz ${DESTDIR}/solar_capture-$(SC_VER_STR).tgz
