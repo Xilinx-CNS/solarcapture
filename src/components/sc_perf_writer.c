@@ -103,7 +103,7 @@ struct perf_writer_file {
   int                        filename_len;
 
   int                        rotate_secs;
-  int                        rotate_file_size;
+  int64_t                    rotate_file_size;
   int                        append;
   uint64_t                   file_size;
   uint64_t                   file_write_offset;
@@ -1293,21 +1293,28 @@ int sc_perf_writer_init(struct sc_node* node, const struct sc_attr* attr,
     return -1;
 
   int arg_snap, arg_sync, arg_discard_mask, arg_append;
-  int arg_rotate_secs, arg_rotate_file_size;
-# define get_arg_int  sc_node_init_get_arg_int
+  int arg_rotate_secs;
+  int64_t arg_rotate_file_size;
+# define get_arg_int     sc_node_init_get_arg_int
+# define get_arg_int64   sc_node_init_get_arg_int64
   if( get_arg_int(&arg_append, node, "append", 0)                       < 0 ||
       get_arg_int(&arg_rotate_secs, node, "rotate_seconds", 0)          < 0 ||
-      get_arg_int(&arg_rotate_file_size, node, "rotate_file_size", 0)   < 0 ||
+      get_arg_int64(&arg_rotate_file_size, node, "rotate_file_size", 0) < 0 ||
       get_arg_int(&arg_snap, node, "snap", 0)                           < 0 ||
       get_arg_int(&arg_discard_mask, node, "discard_mask", 0)           < 0 ||
       get_arg_int(&arg_sync, node, "sync_on_close", 0)                  < 0  )
     return -1;
 # undef get_arg_int
+# undef get_arg_int64
 
   if( arg_append && (arg_rotate_secs || arg_rotate_file_size) )
     return sc_node_set_error(node, EINVAL, "%s: ERROR: append is not "
                              "compatible with file rotation\n", __func__);
 
+  if( arg_rotate_file_size < 0 )
+    return sc_node_set_error(node, EINVAL,
+                             "sc_perf_writer: ERROR: rotate_file_size must "
+                             "be >= 0\n");
 
   struct perf_writer_node* wn;
   wn = sc_thread_calloc(sc_node_get_thread(node), sizeof(*wn));

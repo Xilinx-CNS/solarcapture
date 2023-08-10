@@ -779,7 +779,7 @@ _args = [
     sc.cli.Arg("discard", handle_discard, default=[]),
     sc.cli.Arg("capture_cores", handle_capture_cores, default=[None]),
     sc.cli.Uint("rotate_seconds", default=0),
-    sc.cli.Uint("rotate_file_size", default=0),
+    sc.cli.Int64("rotate_file_size", default=0),
     sc.cli.Str("filter"),
     sc.cli.Str("arista_ts"),
     sc.cli.Str("cpacket_ts"),

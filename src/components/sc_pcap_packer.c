@@ -86,7 +86,7 @@ struct sc_pcap_packer_state {
   size_t                       buffer_size;
   int                          snap;
   int                          rotate_secs;
-  int                          rotate_file_size;
+  int64_t                      rotate_file_size;
   uint                         file_index;
   uint64_t                     next_rotate_sec;
   int                          eos_waiting;
@@ -886,8 +886,9 @@ static int sc_pcap_packer_prep(struct sc_node* node,
 }
 
 
-#define get_arg_int  sc_node_init_get_arg_int
-#define get_arg_str  sc_node_init_get_arg_str
+#define get_arg_int     sc_node_init_get_arg_int
+#define get_arg_int64   sc_node_init_get_arg_int64
+#define get_arg_str     sc_node_init_get_arg_str
 
 
 static int sc_pcap_packer_init(struct sc_node* node, const struct sc_attr* attr,
@@ -903,11 +904,12 @@ static int sc_pcap_packer_init(struct sc_node* node, const struct sc_attr* attr,
   sc_pcap_packer_stats_declare(sc_thread_get_session(sc_node_get_thread(node)));
   node->nd_type = nt;
 
-  int snap, rotate_secs, rotate_fs, wait_for_byte_count, discard_mask;
+  int snap, rotate_secs, wait_for_byte_count, discard_mask;
+  int64_t rotate_fs;
   const char *format, *on_error_s, *filename;
   if( get_arg_int(&snap, node, "snap", 0)                                 < 0 ||
       get_arg_int(&rotate_secs, node, "rotate_seconds", 0)                < 0 ||
-      get_arg_int(&rotate_fs, node, "rotate_file_size", 0)                < 0 ||
+      get_arg_int64(&rotate_fs, node, "rotate_file_size", 0)              < 0 ||
       get_arg_str(&format, node, "format", "pcap")                        < 0 ||
       get_arg_str(&on_error_s, node, "on_error", "exit")                  < 0 ||
       get_arg_str(&filename, node, "filename", NULL)                      < 0 ||
@@ -922,6 +924,7 @@ static int sc_pcap_packer_init(struct sc_node* node, const struct sc_attr* attr,
   if( rotate_secs < 0 )
     return sc_node_set_error(node, EINVAL, "sc_pcap_packer: ERROR: "
                              "rotate_seconds must be >= 0\n");
+
   if( rotate_fs < 0 )
     return sc_node_set_error(node, EINVAL,
                              "sc_pcap_packer: ERROR: rotate_file_size must "

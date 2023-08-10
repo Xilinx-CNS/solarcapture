@@ -20,6 +20,18 @@ def uint32(s):
         raise ValueError("%d out of range for uint32" % v)
     return v
 
+def int64(s):
+    v = int(s)
+    if not (-1 << 63) <= v < (1 << 63):
+        raise ValueError("%d out of range for int64" % v)
+    return v
+
+def uint64(s):
+    v = int(s)
+    if not 0 <= v < (1 << 64):
+        raise ValueError("%d out of range for uint64" % v)
+    return v
+
 
 class Arg(object):
     handler = None
@@ -54,6 +66,13 @@ class Uint(Arg):
     def handler(self, config, k, v):
          config.set_key(k, uint32(v))
 
+class Int64(Arg):
+    def handler(self, config, k, v):
+         config.set_key(k, int64(v))
+
+class Uint64(Arg):
+    def handler(self, config, k, v):
+         config.set_key(k, uint64(v))
 
 class Posint(Arg):
     def handler(self, config, k, v):
@@ -186,7 +205,7 @@ def iter_args(known_args, config, args, handle_unknown_arg):
                 try:
                     known_args[k].handler(config, k, v)
                 except (KeyError, ValueError) as e:
-                    err("Bad value %r for key %r" % (v, k))
+                    err("Bad value %r for key %r" % (v, k) + ":" + str(e))
             elif handle_unknown_arg:
                 handle_unknown_arg(config, k, v)
             else:

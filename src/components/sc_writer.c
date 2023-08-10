@@ -89,7 +89,7 @@ struct writer_file {
   enum ts_type               ts_type;
   int                        snap;
   int                        rotate_secs;
-  int                        rotate_file_size;
+  int64_t                    rotate_file_size;
   int                        append;
 
   struct iovec               iovecs[IO_BUF_LEN];
@@ -445,7 +445,7 @@ static int sc_writer_init(struct sc_node* node, const struct sc_attr* attr,
       sc_node_init_get_arg_int(&st->append, node, "append", 0) < 0 ||
       sc_node_init_get_arg_int(&st->rotate_secs, node,
                                "rotate_seconds", 0)            < 0 ||
-      sc_node_init_get_arg_int(&st->rotate_file_size, node,
+      sc_node_init_get_arg_int64(&st->rotate_file_size, node,
                                "rotate_file_size", 0)          < 0  )
     goto err;
   if( st->snap == 0 )
@@ -455,6 +455,11 @@ static int sc_writer_init(struct sc_node* node, const struct sc_attr* attr,
                       __func__, st->snap);
     goto err;
   }
+
+  if( st->rotate_file_size < 0 )
+    return sc_node_set_error(node, EINVAL,
+                             "sc_writer: ERROR: rotate_file_size must "
+                             "be >= 0\n");
 
   /* See if this file has already been opened. */
   struct writer_file* st2;
