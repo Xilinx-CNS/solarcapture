@@ -205,40 +205,19 @@ static inline int pcap_put_header(struct writer_node* wn, struct sc_packet* pkt)
 static int sc_writer_open_file(struct writer_node* wn, int in_prep)
 {
   struct writer_file* st = wn->file;
-
+  struct timespec ts;
   if( st->rotate_secs ) {
-    struct timespec ts;
-    struct tm tm;
     sc_timer_get_expiry_time(wn->rotate_cb, &ts);
-    strftime(st->filename, st->filename_len,
-             st->filename_template, localtime_r(&ts.tv_sec, &tm));
-  }
-  else {
-    strcpy(st->filename, st->filename_template);
-  }
-
-  if( st->rotate_file_size ) {
-    char file_index_str[20];
-    sprintf(file_index_str, "%d", st->file_index);
-    ++st->file_index;
-
-    char buf[st->filename_len];
-    const char* needle = "$i";
-    const char* p = strstr(st->filename, needle);
-    if( p ) {
-      memcpy(buf, st->filename, p - st->filename);
-      buf[p - st->filename] = '\0';
-      strcat(buf, file_index_str);
-      strcat(buf, p + strlen(needle));
-      strcpy(st->filename, buf);
-    }
-    else
-      strcat(st->filename, file_index_str);
-  }
+   }
+  int ok = sc_pcap_filename(st->filename, st->filename_len,
+                            st->filename_template, st->rotate_secs,
+                            st->rotate_file_size, ts, st->file_index);
+  if ( ok < 0 ) return ok;
 
   if( st->fd >= 0 ) {
     writer_flush(wn);
     close(st->fd);
+    st->fd = -1;
   }
 
   int flags;
