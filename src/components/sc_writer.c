@@ -23,6 +23,7 @@
  * append           | Yes       | 0       | ::SC_PARAM_INT | Set to 1 to append if file exists.  (Not compatible with file rotation).
  * rotate_seconds   | Yes       | 0       | ::SC_PARAM_INT | Rotate to a new file every n seconds.
  * rotate_file_size | Yes       | 0       | ::SC_PARAM_INT | Rotate to a new file when file exceeds given size in bytes.
+ * rotate_file_pad  | Yes       | 3       | ::SC_PARAM_INT | Pad filenumber with this many leading zeros
  * snap             | Yes       | 0       | ::SC_PARAM_INT | Maximum number of bytes of packet data to store.  By default whole packets are stored.
  * sync_on_close    | Yes       | 0       | ::SC_PARAM_INT | Set to 1 to cause an fsync() when a file is closed.
  *
@@ -90,6 +91,7 @@ struct writer_file {
   int                        snap;
   int                        rotate_secs;
   int64_t                    rotate_file_size;
+  int                        rotate_file_pad;
   int                        append;
 
   struct iovec               iovecs[IO_BUF_LEN];
@@ -211,7 +213,8 @@ static int sc_writer_open_file(struct writer_node* wn, int in_prep)
    }
   int ok = sc_pcap_filename(st->filename, st->filename_len,
                             st->filename_template, st->rotate_secs,
-                            st->rotate_file_size, ts, st->file_index);
+                            st->rotate_file_size, ts, st->rotate_file_pad,
+                            st->file_index);
   if ( ok < 0 ) return ok;
 
   if( st->fd >= 0 ) {
@@ -425,7 +428,9 @@ static int sc_writer_init(struct sc_node* node, const struct sc_attr* attr,
       sc_node_init_get_arg_int(&st->rotate_secs, node,
                                "rotate_seconds", 0)            < 0 ||
       sc_node_init_get_arg_int64(&st->rotate_file_size, node,
-                               "rotate_file_size", 0)          < 0  )
+                               "rotate_file_size", 0)          < 0 ||
+      sc_node_init_get_arg_int(&st->rotate_file_pad, node,
+                               "rotate_file_pad", 0)           < 0   )
     goto err;
   if( st->snap == 0 )
     st->snap = MAX_SNAPLEN;
@@ -438,6 +443,11 @@ static int sc_writer_init(struct sc_node* node, const struct sc_attr* attr,
   if( st->rotate_file_size < 0 )
     return sc_node_set_error(node, EINVAL,
                              "sc_writer: ERROR: rotate_file_size must "
+                             "be >= 0\n");
+
+  if( st->rotate_file_size < 0 )
+    return sc_node_set_error(node, EINVAL,
+                             "sc_writer: ERROR: rotate_file_pad must "
                              "be >= 0\n");
 
   /* See if this file has already been opened. */

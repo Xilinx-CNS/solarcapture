@@ -104,6 +104,7 @@ struct perf_writer_file {
 
   int                        rotate_secs;
   int64_t                    rotate_file_size;
+  int                        rotate_file_pad;
   int                        append;
   uint64_t                   file_size;
   uint64_t                   file_write_offset;
@@ -1017,7 +1018,8 @@ int sc_disk_writer_prep(struct sc_node* node,
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
   int rc = sc_pcap_filename(sanity_check_name, name_length,
-                            wn->file->filename_template, true, false, ts, 0);
+                            wn->file->filename_template, true, false, ts,
+                            st->rotate_file_pad, 0);
   if( rc == 0 ) {
     /* NOTE: If the pcap filename is in a directory that does not
      * exist, sc_check_path will create that directory. This can
@@ -1293,13 +1295,14 @@ int sc_perf_writer_init(struct sc_node* node, const struct sc_attr* attr,
     return -1;
 
   int arg_snap, arg_sync, arg_discard_mask, arg_append;
-  int arg_rotate_secs;
+  int arg_rotate_secs, arg_rotate_file_pad;
   int64_t arg_rotate_file_size;
 # define get_arg_int     sc_node_init_get_arg_int
 # define get_arg_int64   sc_node_init_get_arg_int64
   if( get_arg_int(&arg_append, node, "append", 0)                       < 0 ||
       get_arg_int(&arg_rotate_secs, node, "rotate_seconds", 0)          < 0 ||
       get_arg_int64(&arg_rotate_file_size, node, "rotate_file_size", 0) < 0 ||
+      get_arg_int(&arg_rotate_file_pad, node, "rotate_file_pad", 0)     < 0 ||
       get_arg_int(&arg_snap, node, "snap", 0)                           < 0 ||
       get_arg_int(&arg_discard_mask, node, "discard_mask", 0)           < 0 ||
       get_arg_int(&arg_sync, node, "sync_on_close", 0)                  < 0  )
@@ -1314,6 +1317,11 @@ int sc_perf_writer_init(struct sc_node* node, const struct sc_attr* attr,
   if( arg_rotate_file_size < 0 )
     return sc_node_set_error(node, EINVAL,
                              "sc_perf_writer: ERROR: rotate_file_size must "
+                             "be >= 0\n");
+
+  if( arg_rotate_file_pad < 0 )
+    return sc_node_set_error(node, EINVAL,
+                             "sc_perf_writer: ERROR: rotate_file_pad must "
                              "be >= 0\n");
 
   struct perf_writer_node* wn;
@@ -1331,6 +1339,7 @@ int sc_perf_writer_init(struct sc_node* node, const struct sc_attr* attr,
   st->append = arg_append;
   st->rotate_secs = arg_rotate_secs;
   st->rotate_file_size = arg_rotate_file_size;
+  st->rotate_file_pad = arg_rotate_file_pad;
   if( partial_suffix == NULL ) {
     if( st->rotate_secs || st->rotate_file_size )
       partial_suffix = ".partial";
@@ -1393,6 +1402,7 @@ int sc_perf_writer_init(struct sc_node* node, const struct sc_attr* attr,
     SC_ARG_STR("on_error", on_error_str),
     SC_ARG_INT("rotate_seconds", st->rotate_secs),
     SC_ARG_INT("rotate_file_size", st->rotate_file_size),
+    SC_ARG_INT("rotate_file_pad", st->rotate_file_pad),
     SC_ARG_STR("filename", st->filename_template),
     SC_ARG_STR("format", arg_format),
     SC_ARG_INT("wait_for_byte_count", 1),

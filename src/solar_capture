@@ -58,6 +58,7 @@ options:
   format              Packet capture file format.
   rotate_seconds      Capture file rotation (like tcpdump -G).
   rotate_file_size    Capture file rotation (like tcpdump -C).
+  rotate_file_pad     Pad file number with leading zeros up to this length
   packet_count        Stop capture after receiving N packets
   filter              BPF filter string (software filtering).
   arista_ts           Use Arista hardware timestamps.
@@ -274,6 +275,18 @@ HELP_ROTATE_FILE_SIZE = '''\
   The file name provided with output= should include the string '$i' which
   is replaced by an incrementing index.  If rotate_seconds is also used then
   the index is reset to zero after each time-based rotation.
+
+  Also see rotate_file_pad.
+'''
+
+
+HELP_ROTATE_FILE_PAD = '''\
+  If nonzero, file numbering will be padded to this length.
+
+  e.g. when set to 3,  output-$1.pcap would create output-000.pcap,
+  output-001.pcap etc.
+
+  Only valid while rotating - See rotate_file_size.
 '''
 
 
@@ -780,6 +793,7 @@ _args = [
     sc.cli.Arg("capture_cores", handle_capture_cores, default=[None]),
     sc.cli.Uint("rotate_seconds", default=0),
     sc.cli.Int64("rotate_file_size", default=0),
+    sc.cli.Uint("rotate_file_pad", default=3),
     sc.cli.Str("filter"),
     sc.cli.Str("arista_ts"),
     sc.cli.Str("cpacket_ts"),
@@ -1053,6 +1067,7 @@ def process(sc_tg, captures):
                   'format'           : capture['format'],
                   'rotate_seconds'   : capture['rotate_seconds'],
                   'rotate_file_size' : capture['rotate_file_size'],
+                  'rotate_file_pad'  : capture['rotate_file_pad'],
                   'discard_mask'     : capture.get('discard_i',0)}
         if capture['partial_suffix'] is not None:
             wargs['partial_suffix'] = capture['partial_suffix']

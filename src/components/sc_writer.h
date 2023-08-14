@@ -53,16 +53,16 @@ static inline int ts_type_from_str(const char* str, enum ts_type* ts_type_out)
 }
 
 static inline int sc_pcap_filename(char* buf, int buf_len, const char* template_in,
-                             bool timed, bool indexed,
-                             struct timespec ts, int index)
+                             bool timed, bool indexed, struct timespec ts,
+                             int index_pad, int index)
 {
   char tmpl[buf_len];
   if( indexed ) {
     const char* needle = "$i";
     const char* p = strstr(template_in, needle);
     if( p ) {
-      if( snprintf(tmpl, buf_len, "%.*s%d%s", (int)(p-template_in), template_in,
-            index, p + strlen(needle)) == buf_len )
+      if( snprintf(tmpl, buf_len, "%.*s%0*d%s", (int)(p-template_in), template_in,
+            index_pad, index, p + strlen(needle)) == buf_len )
         return -1;
     }
     else {

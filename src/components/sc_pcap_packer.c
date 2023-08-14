@@ -19,6 +19,7 @@
  * snap             | Yes       |         | ::SC_PARAM_INT | Bytes of frame data to store.  If unset or zero, use the "snap" attribute, else at least 16KiB if the attribute is not set.
  * rotate_seconds   | Yes       | 0       | ::SC_PARAM_INT | If nonzero, a new capture file is created after the given number of seconds.
  * rotate_file_size | Yes       | 0       | ::SC_PARAM_INT | If nonzero, a new capture file is created whenever the previous file exceeds the given size in bytes.
+ * rotate_file_pad  | Yes       | 3       | ::SC_PARAM_INT | Pad filenumber with this many leading zeros
  * format           | Yes       | "pcap"  | ::SC_PARAM_STR | File format.  Set to "pcap-ns" for nano-second PCAP format or "pcap" for the default format that uses microseconds.
  * on_error         | Yes       | "exit"  | ::SC_PARAM_STR | Set behaviour for errors. Can be one of "exit", "abort", "message" and "silent".
  * discard_mask     | Yes       | 0       | ::SC_PARAM_INT | Mask with packed stream packets to discard. Bits in the mask that take effect are SC_CSUM_ERROR and SC_CRC_ERROR. Not that this argument will have no effect on packets not in packed stream format.
@@ -87,6 +88,7 @@ struct sc_pcap_packer_state {
   int                          snap;
   int                          rotate_secs;
   int64_t                      rotate_file_size;
+  int                          rotate_file_pad;
   uint                         file_index;
   uint64_t                     next_rotate_sec;
   int                          eos_waiting;
@@ -411,7 +413,8 @@ static inline void pcap_rotate(struct sc_node* node, uint64_t rotate_sec,
       if( is_time_rotate ) {
         st->file_index = 0;
         if( sc_pcap_filename(st->filename_time_rotated, name_len,
-                             st->filename_template, true, false, ts, 0) != 0 ) {
+                             st->filename_template, true, false, ts,
+                             st->rotate_file_pad, 0) != 0 ) {
           if( st->on_error != ON_ERROR_SILENT )
             sc_node_set_error(node, ENOMEM, "%s: ERROR: filename too long "
                               "after template expansion (max %d chars).\n",
@@ -423,7 +426,7 @@ static inline void pcap_rotate(struct sc_node* node, uint64_t rotate_sec,
         st->filename_template;
       if( sc_pcap_filename((char*)st->pkt->metadata, name_len,
                            template, st->rotate_secs, st->rotate_file_size,
-                           ts, st->file_index) != 0 ) {
+                           ts, st->rotate_file_pad, st->file_index) != 0 ) {
         if( st->on_error != ON_ERROR_SILENT )
           sc_node_set_error(node, ENOMEM, "%s: ERROR: filename too long after "
                             "template expansion (max %d chars).\n",
@@ -904,12 +907,13 @@ static int sc_pcap_packer_init(struct sc_node* node, const struct sc_attr* attr,
   sc_pcap_packer_stats_declare(sc_thread_get_session(sc_node_get_thread(node)));
   node->nd_type = nt;
 
-  int snap, rotate_secs, wait_for_byte_count, discard_mask;
+  int snap, rotate_secs, wait_for_byte_count, discard_mask, rotate_fp;
   int64_t rotate_fs;
   const char *format, *on_error_s, *filename;
   if( get_arg_int(&snap, node, "snap", 0)                                 < 0 ||
       get_arg_int(&rotate_secs, node, "rotate_seconds", 0)                < 0 ||
       get_arg_int64(&rotate_fs, node, "rotate_file_size", 0)              < 0 ||
+      get_arg_int(&rotate_fp, node, "rotate_file_pad", 0)                 < 0 ||
       get_arg_str(&format, node, "format", "pcap")                        < 0 ||
       get_arg_str(&on_error_s, node, "on_error", "exit")                  < 0 ||
       get_arg_str(&filename, node, "filename", NULL)                      < 0 ||
@@ -930,6 +934,11 @@ static int sc_pcap_packer_init(struct sc_node* node, const struct sc_attr* attr,
                              "sc_pcap_packer: ERROR: rotate_file_size must "
                              "be >= 0\n");
 
+  if( rotate_fp < 0 )
+    return sc_node_set_error(node, EINVAL,
+                             "sc_pcap_packer: ERROR: rotate_file_pad must "
+                             "be >= 0\n");
+
   enum on_error on_error;
   if( ! on_error_from_str(on_error_s, &on_error) )
     return sc_node_set_error(node, EINVAL, "sc_pcap_packer: ERROR: bad "
@@ -947,6 +956,7 @@ static int sc_pcap_packer_init(struct sc_node* node, const struct sc_attr* attr,
   st->snap = (snap > 0) ? snap : attr->snap;
   st->rotate_secs = rotate_secs;
   st->rotate_file_size = rotate_fs;
+  st->rotate_file_pad = rotate_fp;
   st->on_error = on_error;
   st->ts_type = ts_type;
   st->ready = ! wait_for_byte_count;
