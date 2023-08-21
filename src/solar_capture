@@ -1165,16 +1165,14 @@ def drop_privs(username):
 
 def install_mac_mcast_filter(intf, address):
     mac = ip4_str_to_mac(address)
-    err = os.system ("sfctool -U %s flow-type ether dst %s "
+    err = os.system ("ethtool -U %s flow-type ether dst %s "
                      "action 0 > /dev/null 2>&1" % (intf, mac))
     if err:
-        err = os.system ("sfctool -U %s flow-type ether dst %s action 0" \
+        err = os.system ("ethtool -U %s flow-type ether dst %s action 0" \
                          % (intf, mac))
-        sc.cli.err("Could not run sfctool to install filters (error %d).  "
-                   "Are you running solar_capture as root?  Is sfctool "
-                   "installed and in your path?  The Solarflare utilities "
-                   "package containing sfctool can be downloaded from "
-                   "http://support.solarflare.com." % (err >> 8))
+        sc.cli.err("Could not run ethtool to install filters (error %d).  "
+                   "Are you running solar_capture as root?  Is ethtool "
+                   "installed and in your path?" % (err >> 8))
 
 
 def install_igmp_filters(intf):
