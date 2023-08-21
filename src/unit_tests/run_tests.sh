@@ -103,13 +103,6 @@ c_unittest()
 
     # Process "Check" test results
     outfiles=$(ls $ut_top/*.out || true)
-    if [ -n "$outfiles" ]; then
-        # Convert output to Jenkins result format
-        for f in $outfiles; do
-            b=`basename $f .out`
-            $scriptdir/process-check-to-jenkins.py $f >$ut_top/TEST_$b.xml
-        done
-    fi
 }
 
 
@@ -131,32 +124,6 @@ count_passes()
     log "C Unit tests:"
     log "$passes PASS, $fails FAIL, $errors Test Errors"
     log "=============================================================================="
-}
-
-
-report_c_coverage()
-{
-    # Generate coverage summary for Jenkins while pruning out the coverage info
-    # for unittest code as that would skew the metrics
-    log
-    log "C coverage report:"
-    gcov_opts=
-    if [ $opt_xml -ne 0 ]; then
-        gcov_opts="--xml --output=${ut_top}/c_coverage.xml"
-    fi
-
-    ${scriptdir}/gcovr \
-        --exclude='.*/tests?/' \
-        --exclude='.*/unit_tests/' \
-        --exclude='/usr*' \
-        --exclude='.*/build/' \
-        $gcov_opts
-
-    if [ $opt_xml -ne 0 ]; then
-        # Convert path and obj hierachy to relative dirs
-        filter=$(echo "$topdir/" | tr / .)
-        sed -i -e "s%$filter%%" $ut_top/c_coverage.xml
-    fi
 }
 
 
@@ -189,7 +156,6 @@ Did you forget to prefix the test with c= ?
         done
     done
 
-    report_c_coverage
     count_passes
 }
 
