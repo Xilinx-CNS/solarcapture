@@ -5,17 +5,18 @@
 # SC_PYTHON_CONFIG is used to specify a custom python-config binary path
 # (Both must be python3, python2 is no longer supported)
 
+prefix          ?= usr
 TOP_DIR         := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))..)
 SRCDIR          := ${TOP_DIR}/src
 DOCSDIR         := ${TOP_DIR}/docs
 
 # These are used by "make tarball"
 DESTDIR         := $(TOP_DIR)/build_products/
-BIN_DIR         := usr/bin
-SBIN_DIR        := usr/sbin
-INC_DIR         := usr/include
-LIB_DIR         := usr/lib64
-DOC_DIR         := usr/share/doc
+BIN_DIR         := $(prefix)/bin
+SBIN_DIR        := $(prefix)/sbin
+INC_DIR         := $(prefix)/include
+LIB_DIR         := $(prefix)/lib64
+DOC_DIR         := $(prefix)/share/doc
 
 
 # Versioning:
