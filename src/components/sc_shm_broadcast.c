@@ -464,10 +464,12 @@ sc_shm_broadcast_handle_ssio_msg(struct sc_shm_broadcast_state* st,
       else {
         int rc = snprintf(resp->ssio_ringbuf_shm_path,
                           SSIO_MAX_STR_LEN,
+			  "%s",
                           sc_shm_endpoint_get_path(st->endpoints, endpoint_id));
         SC_TEST( rc < SSIO_MAX_STR_LEN );
         rc = snprintf(resp->ssio_buffer_shm_path,
-                      SSIO_MAX_STR_LEN, st->buffer_fname);
+                      SSIO_MAX_STR_LEN, "%s",
+		      st->buffer_fname);
         SC_TEST( rc < SSIO_MAX_STR_LEN );
       }
       pkt->iov[0].iov_len = sizeof(*out_hdr) + sizeof(*out_msg);
