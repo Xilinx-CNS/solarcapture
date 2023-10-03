@@ -21,7 +21,7 @@ static void sc_internal_error(struct sc_session* tg, const char* exp,
     "ERROR: SolarCapture detected internal error.  This may be due to a bug\n"
     "in SolarCapture, or in an application embedding SolarCapture, or in a\n"
     "plugin extension.\n";
-  sc_log(tg, msg);
+  sc_log(tg, "%s", msg);
   sc_log(tg, "ERROR: exp=%s in %s:%d\n", exp, func, line);
   sc_log(tg, "ERROR: context: %s %s %s\n", caller, ctx1, ctx2);
   abort();
