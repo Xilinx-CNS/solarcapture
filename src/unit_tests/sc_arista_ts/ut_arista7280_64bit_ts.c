@@ -12,7 +12,7 @@
 
 #include "solar_capture/ext_packet.h"
 
-#include <bits/uio.h>
+#include <sys/uio.h>
 #include <check.h>
 #include <netinet/in.h>
 #include <stdint.h>

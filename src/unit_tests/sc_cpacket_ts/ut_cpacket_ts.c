@@ -13,7 +13,7 @@
 #include "cpacket_offsets.h"
 #include "solar_capture/ext_packet.h"
 
-#include <bits/uio.h>
+#include <sys/uio.h>
 #include <check.h>
 #include <check_helpers.h>
 #include <netinet/in.h>
