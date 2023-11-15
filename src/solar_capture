@@ -58,7 +58,7 @@ options:
   format              Packet capture file format.
   rotate_seconds      Capture file rotation (like tcpdump -G).
   rotate_file_size    Capture file rotation (like tcpdump -C).
-  rotate_file_pad     Pad file number with leading zeros up to this length
+  rotate_file_pad     Pad file number with leading zeros up to this length.
   packet_count        Stop capture after receiving N packets
   filter              BPF filter string (software filtering).
   arista_ts           Use Arista hardware timestamps.
@@ -282,8 +282,9 @@ HELP_ROTATE_FILE_SIZE = '''\
 
 HELP_ROTATE_FILE_PAD = '''\
   If nonzero, file numbering will be padded to this length.
+  Leave unset, or set to 0 or 1 to avoid adding any padding.
 
-  e.g. when set to 3,  output-$1.pcap would create output-000.pcap,
+  e.g. when set to 3,  output-\\$i.pcap would create output-000.pcap,
   output-001.pcap etc.
 
   Only valid while rotating - See rotate_file_size.
