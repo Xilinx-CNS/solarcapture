@@ -375,14 +375,15 @@ static void process_packed_packet_check_flagged_bad(
 
 /* fetch_arista7280_48bit_time() tests for packed and non-packed packets ---*/
 
-START_TEST(TEST_FETCH_ARISTA_TS(correct_time, synced)) {
+#define CTS_TEST TEST_FETCH_ARISTA_TS(correct_time, synced)
+START_TEST(CTS_TEST) {
   generate_fetch_time_and_check(def_payload_len, def_time_s, def_time_ns,
                                 def_shift_s, def_ts_src_mac, def_invalid);
 }
 END_TEST
 
-
-START_TEST(TEST_FETCH_ARISTA_TS(correct_time, max_behind)) {
+#define CTM_TEST TEST_FETCH_ARISTA_TS(correct_time, max_behind)
+START_TEST(CTM_TEST) {
   static const int16_t shift_s = -(ARISTA7280_48BIT_SECONDS_BITMASK >> 1);
 
   generate_fetch_time_and_check(def_payload_len, def_time_s, def_time_ns,
@@ -390,8 +391,8 @@ START_TEST(TEST_FETCH_ARISTA_TS(correct_time, max_behind)) {
 }
 END_TEST
 
-
-START_TEST(TEST_FETCH_ARISTA_TS(correct_time, max_ahead)) {
+#define CTMA_TEST TEST_FETCH_ARISTA_TS(correct_time, max_ahead)
+START_TEST(CTMA_TEST) {
   static const int16_t shift_s = ARISTA7280_48BIT_SECONDS_BITMASK >> 1;
 
   generate_fetch_time_and_check(def_payload_len, def_time_s, def_time_ns,
@@ -399,8 +400,8 @@ START_TEST(TEST_FETCH_ARISTA_TS(correct_time, max_ahead)) {
 }
 END_TEST
 
-
-START_TEST(TEST_FETCH_ARISTA_TS(correct_time, rollover_down)) {
+#define CTRD_TEST TEST_FETCH_ARISTA_TS(correct_time, rollover_down)
+START_TEST(CTRD_TEST) {
   static const int16_t shift_s = -1;
   static const uint32_t time_s = 0x12340000;
 
@@ -410,8 +411,8 @@ START_TEST(TEST_FETCH_ARISTA_TS(correct_time, rollover_down)) {
 }
 END_TEST
 
-
-START_TEST(TEST_FETCH_ARISTA_TS(correct_time, rollover_up)) {
+#define CTRU_TEST TEST_FETCH_ARISTA_TS(correct_time, rollover_up)
+START_TEST(CTRU_TEST) {
   static const int16_t shift_s = 1;
   static const uint32_t time_s = 0x1234FFFF;
 
@@ -422,7 +423,8 @@ START_TEST(TEST_FETCH_ARISTA_TS(correct_time, rollover_up)) {
 END_TEST
 
 
-START_TEST(TEST_FETCH_ARISTA_TS(correct_time, src_mac)) {
+#define CTSM_TEST TEST_FETCH_ARISTA_TS(correct_time, src_mac)
+START_TEST(CTSM_TEST) {
   static const bool ts_src_mac = true;
 
   generate_fetch_time_and_check(def_payload_len, def_time_s, def_time_ns,
@@ -430,8 +432,8 @@ START_TEST(TEST_FETCH_ARISTA_TS(correct_time, src_mac)) {
 }
 END_TEST
 
-
-START_TEST(TEST_FETCH_ARISTA_TS(error, invalid)) {
+#define EI_TEST TEST_FETCH_ARISTA_TS(error, invalid)
+START_TEST(EI_TEST) {
   static const uint32_t time_ns = 3287091583;
   static const bool invalid = true;
 
@@ -440,16 +442,16 @@ START_TEST(TEST_FETCH_ARISTA_TS(error, invalid)) {
 }
 END_TEST
 
-
-START_TEST(TEST_FETCH_ARISTA_TS_PACKED(correct_time, synced)) {
+#define CTST_TEST TEST_FETCH_ARISTA_TS_PACKED(correct_time, synced)
+START_TEST(CTST_TEST) {
   generate_packed_fetch_time_and_check(def_payload_len, def_time_s,
                                        def_time_ns, def_shift_s,
                                        def_ts_src_mac, def_invalid);
 }
 END_TEST
 
-
-START_TEST(TEST_FETCH_ARISTA_TS_PACKED(correct_time, max_behind)) {
+#define CTMB_TEST TEST_FETCH_ARISTA_TS_PACKED(correct_time, max_behind)
+START_TEST(CTMB_TEST) {
   static const int16_t shift_s = -(ARISTA7280_48BIT_SECONDS_BITMASK >> 1);
 
   generate_packed_fetch_time_and_check(def_payload_len, def_time_s,
@@ -458,8 +460,8 @@ START_TEST(TEST_FETCH_ARISTA_TS_PACKED(correct_time, max_behind)) {
 }
 END_TEST
 
-
-START_TEST(TEST_FETCH_ARISTA_TS_PACKED(correct_time, max_ahead)) {
+#define CTME_TEST TEST_FETCH_ARISTA_TS_PACKED(correct_time, max_ahead)
+START_TEST(CTME_TEST) {
   static const int16_t shift_s = ARISTA7280_48BIT_SECONDS_BITMASK >> 1;
 
   generate_packed_fetch_time_and_check(def_payload_len, def_time_s,
@@ -468,8 +470,8 @@ START_TEST(TEST_FETCH_ARISTA_TS_PACKED(correct_time, max_ahead)) {
 }
 END_TEST
 
-
-START_TEST(TEST_FETCH_ARISTA_TS_PACKED(correct_time, rollover_down)) {
+#define CPRD_TEST TEST_FETCH_ARISTA_TS_PACKED(correct_time, rollover_down)
+START_TEST(CPRD_TEST) {
   static const int16_t shift_s = -1;
   static const uint32_t time_s = 0x12340000;
 
@@ -480,8 +482,8 @@ START_TEST(TEST_FETCH_ARISTA_TS_PACKED(correct_time, rollover_down)) {
 }
 END_TEST
 
-
-START_TEST(TEST_FETCH_ARISTA_TS_PACKED(correct_time, rollover_up)) {
+#define CPRU_TEST TEST_FETCH_ARISTA_TS_PACKED(correct_time, rollover_up)
+START_TEST(CPRU_TEST) {
   static const int16_t shift_s = 1;
   static const uint32_t time_s = 0x1234FFFF;
 
@@ -492,8 +494,8 @@ START_TEST(TEST_FETCH_ARISTA_TS_PACKED(correct_time, rollover_up)) {
 }
 END_TEST
 
-
-START_TEST(TEST_FETCH_ARISTA_TS_PACKED(correct_time, src_mac)) {
+#define CPSM_TEST TEST_FETCH_ARISTA_TS_PACKED(correct_time, src_mac)
+START_TEST(CPSM_TEST) {
   static const bool ts_src_mac = true;
 
   generate_packed_fetch_time_and_check(def_payload_len, def_time_s,
@@ -502,8 +504,8 @@ START_TEST(TEST_FETCH_ARISTA_TS_PACKED(correct_time, src_mac)) {
 }
 END_TEST
 
-
-START_TEST(TEST_FETCH_ARISTA_TS_PACKED(error, invalid)) {
+#define CPI_TEST TEST_FETCH_ARISTA_TS_PACKED(error, invalid)
+START_TEST(CPI_TEST) {
   static const uint32_t time_ns = 3287091583;
   static const bool invalid = true;
 
@@ -515,8 +517,8 @@ END_TEST
 
 
 /* strip_arista7280 function tests for packed and non-packed packets --------*/
-
-START_TEST(TEST_STRIP_TICKS(single)) {
+#define TS_TEST TEST_STRIP_TICKS(single)
+START_TEST(TS_TEST) {
   struct sc_packet* packet;
 
   packet = generate_arista7280_48bit(def_payload_len, def_time_s, def_time_ns,
@@ -548,8 +550,8 @@ START_TEST(TEST_STRIP_TICKS(single)) {
 }
 END_TEST
 
-
-START_TEST(TEST_STRIP_TICKS(packed)) {
+#define TP_TEST TEST_STRIP_TICKS(packed)
+START_TEST(TP_TEST) {
   struct sc_packet* packet;
   struct sc_packed_packet* ps_pkt;
 
@@ -606,8 +608,8 @@ START_TEST(TEST_PROCESS_STRIP_TICKS) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_IGNORE(lldp)) {
+#define IL_TEST TEST_PROCESS_IGNORE(lldp)
+START_TEST(IL_TEST) {
   struct sc_packet* packet = generate_packet(def_payload_len);
   struct ether_header* eth = packet->iov[0].iov_base;
 
@@ -621,8 +623,8 @@ START_TEST(TEST_PROCESS_IGNORE(lldp)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_IGNORE(oui)) {
+#define IO_TEST TEST_PROCESS_IGNORE(oui)
+START_TEST(IO_TEST) {
   struct sc_packet* packet = generate_packet(def_payload_len);
   struct ether_header* eth = packet->iov[0].iov_base;
   struct sc_arista7280_48bit_ts dt = def_dt;
@@ -644,8 +646,8 @@ START_TEST(TEST_PROCESS_IGNORE(oui)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_IGNORE(bad_crc)) {
+#define IB_TEST TEST_PROCESS_IGNORE(bad_crc)
+START_TEST(IB_TEST) {
   struct sc_packet* packet = generate_packet(def_payload_len);
   struct ether_header* eth = packet->iov[0].iov_base;
 
@@ -660,8 +662,8 @@ START_TEST(TEST_PROCESS_IGNORE(bad_crc)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_IGNORE(non_arista7280)) {
+#define IN_TEST TEST_PROCESS_IGNORE(non_arista7280)
+START_TEST(IN_TEST) {
   struct sc_packet* packet = generate_packet(def_payload_len);
   struct ether_header* eth = packet->iov[0].iov_base;
 
@@ -675,7 +677,8 @@ START_TEST(TEST_PROCESS_IGNORE(non_arista7280)) {
 }
 END_TEST
 
-START_TEST(TEST_PROCESS_IGNORE(arista7280_64bit)) {
+#define IA_TEST TEST_PROCESS_IGNORE(arista7280_64bit)
+START_TEST(IA_TEST) {
   struct sc_packet* packet = generate_packet(def_payload_len);
   struct ether_header* eth = packet->iov[0].iov_base;
   struct arista7280_48bit_field_packed* arista;
@@ -693,8 +696,8 @@ START_TEST(TEST_PROCESS_IGNORE(arista7280_64bit)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_DECODE(arista7280_48bit)) {
+#define DA_TEST TEST_PROCESS_DECODE(arista7280_48bit)
+START_TEST(DA_TEST) {
   struct sc_packet* packet;
 
   node_stub_sc_thread_set_time(def_time_s, def_time_ns);
@@ -708,8 +711,8 @@ START_TEST(TEST_PROCESS_DECODE(arista7280_48bit)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_DECODE(ts_src_mac)) {
+#define DT_TEST TEST_PROCESS_DECODE(ts_src_mac)
+START_TEST(DT_TEST) {
   struct sc_packet* packet;
   struct sc_arista7280_48bit_ts dt = def_dt;
 
@@ -725,8 +728,8 @@ START_TEST(TEST_PROCESS_DECODE(ts_src_mac)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_REPLACE(src_mac)) {
+#define RSM_TEST TEST_PROCESS_REPLACE(src_mac)
+START_TEST(RSM_TEST) {
   static const size_t payload_len = 64;
   static const uint32_t time_s = 0x12345678;
   static const uint32_t time_ns = 0x12345678;
@@ -774,8 +777,8 @@ START_TEST(TEST_PROCESS_PACKED_STRIP_TICKS) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_PACKED_IGNORE(lldp)) {
+#define PILL_TEST TEST_PROCESS_PACKED_IGNORE(lldp)
+START_TEST(PILL_TEST) {
   struct sc_packet* packet;
   struct sc_packed_packet* ps_pkt;
   struct ether_header* eth;
@@ -795,8 +798,8 @@ START_TEST(TEST_PROCESS_PACKED_IGNORE(lldp)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_PACKED_IGNORE(oui)) {
+#define PIOU_TEST TEST_PROCESS_PACKED_IGNORE(oui)
+START_TEST(PIOU_TEST) {
   struct sc_packet* packet;
   struct sc_packed_packet* ps_pkt;
   struct ether_header* eth;
@@ -824,8 +827,8 @@ START_TEST(TEST_PROCESS_PACKED_IGNORE(oui)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_PACKED_FLAG(bad_crc)) {
+#define PFBC_TEST TEST_PROCESS_PACKED_FLAG(bad_crc)
+START_TEST(PFBC_TEST) {
   struct sc_packet* packet;
   struct sc_packed_packet* ps_pkt;
 
@@ -839,8 +842,8 @@ START_TEST(TEST_PROCESS_PACKED_FLAG(bad_crc)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_PACKED_FLAG(non_arista7280)) {
+#define PFNA_TEST TEST_PROCESS_PACKED_FLAG(non_arista7280)
+START_TEST(PFNA_TEST) {
   struct sc_packet* packet;
   struct sc_packed_packet* ps_pkt;
   struct ether_header* eth;
@@ -860,8 +863,8 @@ START_TEST(TEST_PROCESS_PACKED_FLAG(non_arista7280)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_PACKED_FLAG(arista7280_64bit)) {
+#define PFAS_TEST TEST_PROCESS_PACKED_FLAG(arista7280_64bit)
+START_TEST(PFAS_TEST) {
   struct sc_packet* packet;
   struct sc_packed_packet* ps_pkt;
   struct arista7280_48bit_field_packed* arista;
@@ -880,8 +883,8 @@ START_TEST(TEST_PROCESS_PACKED_FLAG(arista7280_64bit)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_PACKED_DECODE(arista7280_48bit)) {
+#define PDAF_TEST TEST_PROCESS_PACKED_DECODE(arista7280_48bit)
+START_TEST(PDAF_TEST) {
   struct sc_packet* packet;
   struct sc_packed_packet* ps_pkt;
 
@@ -896,8 +899,8 @@ START_TEST(TEST_PROCESS_PACKED_DECODE(arista7280_48bit)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_PACKED_DECODE(ts_src_mac)) {
+#define PDTS_TEST TEST_PROCESS_PACKED_DECODE(ts_src_mac)
+START_TEST(PDTS_TEST) {
   struct sc_packet* packet;
   struct sc_packed_packet* ps_pkt;
   struct sc_arista7280_48bit_ts dt = def_dt;
@@ -917,8 +920,8 @@ START_TEST(TEST_PROCESS_PACKED_DECODE(ts_src_mac)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PROCESS_PACKED_REPLACE(src_mac)) {
+#define PRSM_TEST TEST_PROCESS_PACKED_REPLACE(src_mac)
+START_TEST(PRSM_TEST) {
   static const size_t payload_len = 64;
   static const uint32_t time_s = 0x12345678;
   static const uint32_t time_ns = 0x12345678;
@@ -955,7 +958,6 @@ START_TEST(TEST_PROCESS_PACKED_REPLACE(src_mac)) {
   free_packet(packet);
 }
 END_TEST
-
 
 /* set up and run --------------------------------------------------------- */
 
@@ -1015,7 +1017,6 @@ int main(int argc, const char *argv[]) {
   tcase_add_test(tc_packed_packet, TEST_PROCESS_PACKED_REPLACE(src_mac));
   suite_add_tcase(s, tc_packed_packet);
 
-
   SRunner *sr = srunner_create(s);
   const char *progname;
   char logfile[512];
@@ -1035,3 +1036,5 @@ int main(int argc, const char *argv[]) {
 
   return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+
+
