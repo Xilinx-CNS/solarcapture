@@ -75,8 +75,8 @@ SC_LIB_DBG	:= lib/debug
 SC_INC		:= -Iinclude
 SC_LINK		:= -L$(SC_LIB) -Wl,-rpath,$(SC_BUILD)/$(SC_LIB) \
 		   -Wl,--enable-new-dtags
-SC_LINK		+= -lsolarcapture$(SC_VER_MAJ)
-
+SC_LINK_LIB	:= -lsolarcapture$(SC_VER_MAJ)
+SC_LINK         += ${SC_LINK_LIB}
 CWARNINGS	:= -Wall -Wundef -Wstrict-prototypes -Wpointer-arith \
 		   -Wnested-externs -Wno-address-of-packed-member -Wno-unused-result
 CXXWARNINGS	:= -Wall -Wundef -Wpointer-arith
@@ -381,10 +381,9 @@ endif
 components/%.o: SC_INC += -Icomponents
 
 test/libpcap/%: SC_INC += -I$(PCAP)
-test/libpcap/%: SC_LINK := $(SC_LIB)/pcap/libpcap.so.1 -ldl -lpthread -lrt
+test/libpcap/%: SC_LINK_LIB := $(SC_LIB)/pcap/libpcap.so.1 -ldl -lpthread -pthread -lrt
+test/%: SC_LINK_LIB += -lpthread -pthread -lrt
 ${TEST_APPS}: $(SC_LIB)/pcap/libpcap.so.1
-
-test/af_packet/%: SC_LINK := -lpthread
 
 examples/%.so: examples/%.c $(SC_LIB)/$(LIBSC_LINKNAME) \
 		include/*.h include/*/*.h
@@ -408,11 +407,12 @@ examples/c_api_export/c_api_export:			\
 		examples/c_api_export/split_to_rings.o
 
 test/%: test/%.c $(SC_LIB)/$(LIBSC_LINKNAME) include/*.h include/*/*.h
-	$(CC) $(CFLAGS) $(SC_CFLAGS) $(SC_INC) $< $(SC_LINK) -o $@
+	$(CC) $< $(SC_INC) -L${SC_LIB} $(SC_LINK_LIB) \
+	$(FLAGS) -o $@
 
 test/%: test/%.cc $(SC_LIB)/$(LIBSC_LINKNAME) include/*.h include/*/*.h
-	$(CXX) $(CXXWARNINGS) -Werror -g $(SC_CFLAGS) $(SC_INC) \
-		$< $(SC_LINK) -o $@
+	$(CXX) $< $(SC_INC) -L${SC_LIB} $(SC_LINK_LIB) \
+	$(CXXWARNINGS) -Werror -g -o $@ ${SC_CFLAGS}
 
 .PHONY: unit_tests
 unit_tests: all

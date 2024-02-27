@@ -801,7 +801,8 @@ static PyObject* sc_stream_get_mcast_group(PyObject* self, PyObject* args)
   uint16_t vlan_id;
 
   if( ! PyArg_ParseTuple(args, "OOs", &attr_dict, &tg_obj, &stream_str) ||
-      ! sc_py_get_session(tg_obj, &tg) )
+      ! sc_py_get_session(tg_obj, &tg) ) {
+    fprintf( stderr, "error: sc_stream_get_mcast_group: No session provided\n" );
     return NULL;
     }
   if( (attr = sc_attr_from_py(attr_dict)) == NULL ) {
