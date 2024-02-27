@@ -1031,6 +1031,9 @@ def process(sc_tg, captures):
     for i, capture in enumerate(captures):
         for stream in capture['join_streams']:
             capture['streams'].append(stream)
+            group = sc.get_mcast_group(sc_tg, stream)
+            if group is None:
+              print( "stream " + stream + " doesn't look like a multicast stream." )
             mcast_spec = str( sc.get_mcast_group(sc_tg, stream), 'utf-8')
             if mcast_spec:
                 capture['join_mcasts'].append(mcast_spec)
