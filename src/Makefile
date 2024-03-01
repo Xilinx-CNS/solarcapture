@@ -47,9 +47,12 @@ SC_VER_STR	:= $(SC_VER_MAJ).$(SC_VER_MIN).$(SC_VER_REL).$(SC_VER_BUILD)
 
 # The version of the libsolarcapture shared library is the API version defined
 # by SC_API_VER_MAX in src/include/solar_capture_ext.h.
+
+# For compatibility with GNU make < 4.3
+H := \#
 _VER_INC := -I${SRCDIR}/include
 SCLIB_VER_MAJOR := ${SC_VER_MAJ}
-SCLIB_VER_MINOR := $(shell { echo "#include \"solar_capture_ext.h\""; echo "SC_API_VER_MAX"; } | cpp ${_VER_INC} | tail -1 )
+SCLIB_VER_MINOR := $(shell { echo "${H}include \"solar_capture_ext.h\""; echo "SC_API_VER_MAX"; } | cpp ${_VER_INC} | tail -1 )
 SCLIB_VER_PATCH := 0
 
 ifndef ARCH
