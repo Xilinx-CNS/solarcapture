@@ -842,7 +842,9 @@ START_TEST(get_next_entry_test_all_but_one_valid)
   for( i = 0; i < table->table_mask + 1; ++i )
     if( i != 42 )
       valid_entries[j++] = i;
-  check_entries(table, valid_entries, table->table_mask + 1);
+
+  // NOT +1 because the list of valid entries is one shorter now
+  check_entries(table, valid_entries, table->table_mask);
   sc_hash_table_free(table);
 }
 END_TEST
@@ -1222,7 +1224,19 @@ int main(int argc, char ** argv)
 {
   Suite* s = sc_logger_suite();
   SRunner* sr = srunner_create(s);;
-  srunner_run_all(sr, CK_NORMAL);
+  const char *progname;
+  char logfile[512];
+
+  progname = strrchr(argv[0], '/');
+  if (progname) {
+    progname++;
+  } else {
+    progname = argv[0];
+  }
+  snprintf(logfile, sizeof(logfile), "%s.out", progname);
+
+  srunner_set_log(sr, logfile);
+  srunner_run_all(sr, CK_VERBOSE);
   unsigned number_failed = srunner_ntests_failed(sr);
   srunner_free(sr);
   return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
