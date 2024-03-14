@@ -21,9 +21,9 @@ def is_int(str):
 def auto_justify_col(col, width):
     if min(map(is_int, col[1:])):
         # All fields (possibly excepting first) are integers.
-        just = string.rjust
+        just = str.rjust
     else:
-        just = string.ljust
+        just = str.ljust
     return [just(f, width) for f in col]
 
 
