@@ -21,17 +21,15 @@ def is_int(str):
 def auto_justify_col(col, width):
     if min(map(is_int, col[1:])):
         # All fields (possibly excepting first) are integers.
-        just = string.rjust
+        return [f.rjust(width) for f in col]
     else:
-        just = string.ljust
-    return [just(f, width) for f in col]
+        return [f.ljust(width) for f in col]
 
 
 def justify_col_by_field(justify_field):
     def justify_col(col, width):
         return [justify_field(f, width) for f in col]
     return justify_col
-
 
 def pad_table(rows, justify_field=None, justify_col=None, col_widths=None):
     if justify_field is None and justify_col is None:
@@ -44,7 +42,7 @@ def pad_table(rows, justify_field=None, justify_col=None, col_widths=None):
 
     widths = [max(len(f) for f in col) for col in cols]
     if col_widths:
-        widths = map(max, widths, col_widths)
+        widths = list(map(max, widths, col_widths))
         for i, w in enumerate(widths):
             col_widths[i] = w
 
@@ -80,8 +78,8 @@ def playpen():
     widths = [0] * 3
     print( fmt_table(test_data, col_widths=widths) )
 
-    l = string.ljust
-    r = string.rjust
+    l = "".ljust
+    r = "".rjust
     print( fmt_table(test_data, col_widths=widths,
                     justify_field=[r, l, l], colsep=' | ') )
 

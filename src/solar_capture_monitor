@@ -13,7 +13,7 @@ if os.path.exists(os.path.join(top, 'src', 'python', 'solar_capture')):
 import solar_capture as sc
 import solar_capture.stats as stats
 import solar_capture.tabulate as tab
-
+from functools import reduce
 
 usage_text = '''
   solar_capture_monitor [options] [sessions] [commands]
@@ -427,7 +427,7 @@ def periodic_writer(content_generator, stream):
     try:
         t_next_wake = time.time()
         while True:
-            stream.write(content_generator.next())
+            stream.write(next(content_generator))
             stream.flush()
             time_now = time.time()
             while t_next_wake - time_now <= 0.0:
@@ -445,7 +445,7 @@ def curses_app(stdscr, curses, content_generator, refresh=1.0):
     done = False
     while not done:
         win.erase()
-        win.addstr(0, 0, content_generator.next())
+        win.addstr(0, 0, next(content_generator))
         win.refresh()
         # Wait [refresh] secs, but respond to key-press within 1/10th of sec.
         for i in range(int(refresh / 0.1)):
