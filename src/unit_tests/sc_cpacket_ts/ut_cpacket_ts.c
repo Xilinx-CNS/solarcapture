@@ -982,7 +982,8 @@ END_TEST
 
 /* TLV extensions tests ---------------------------------------------------- */
 /* single_tlv_ext_len()  */
-START_TEST(TEST_SINGLE_TLV_EXT_LEN(single_tlv, single_word, with_fcs)) {
+#define TEL_SSW TEST_SINGLE_TLV_EXT_LEN(single_tlv, single_word, with_fcs)
+START_TEST(TEL_SSW) {
   static const uint32_t time_s = 56789;
   static const uint32_t time_ns = 12345;
   static const size_t shortish = 93;
@@ -1003,8 +1004,8 @@ START_TEST(TEST_SINGLE_TLV_EXT_LEN(single_tlv, single_word, with_fcs)) {
 }
 END_TEST
 
-
-START_TEST(TEST_SINGLE_TLV_EXT_LEN(single_tlv, single_word, without_fcs)) {
+#define TEL_SSO TEST_SINGLE_TLV_EXT_LEN(single_tlv, single_word, without_fcs)
+START_TEST(TEL_SSO) {
   static const uint32_t time_s = 56789;
   static const uint32_t time_ns = 12345;
   static const size_t shortish = 93;
@@ -1025,8 +1026,8 @@ START_TEST(TEST_SINGLE_TLV_EXT_LEN(single_tlv, single_word, without_fcs)) {
 }
 END_TEST
 
-
-START_TEST(TEST_SINGLE_TLV_EXT_LEN(single_tlv, multi_word, with_fcs)) {
+#define TEL_SMW TEST_SINGLE_TLV_EXT_LEN(single_tlv, multi_word, with_fcs)
+START_TEST(TEL_SMW) {
   static const uint32_t time_s = 56789;
   static const uint32_t time_ns = 12345;
   static const size_t shortish = 93;
@@ -1047,8 +1048,8 @@ START_TEST(TEST_SINGLE_TLV_EXT_LEN(single_tlv, multi_word, with_fcs)) {
 }
 END_TEST
 
-
-START_TEST(TEST_SINGLE_TLV_EXT_LEN(multi_tlv, single_word, with_fcs)) {
+#define TEL_MSW TEST_SINGLE_TLV_EXT_LEN(multi_tlv, single_word, with_fcs)
+START_TEST(TEL_MSW) {
   static const uint32_t time_s = 56789;
   static const uint32_t time_ns = 12345;
   static const size_t shortish = 93;
@@ -1069,8 +1070,8 @@ START_TEST(TEST_SINGLE_TLV_EXT_LEN(multi_tlv, single_word, with_fcs)) {
 }
 END_TEST
 
-
-START_TEST(TEST_SINGLE_TLV_EXT_LEN(secondary_tlv, single_word, with_fcs)) {
+#define TEL_ESW TEST_SINGLE_TLV_EXT_LEN(secondary_tlv, single_word, with_fcs)
+START_TEST(TEL_ESW) {
   static const uint32_t time_s = 56789;
   static const uint32_t time_ns = 12345;
   static const size_t shortish = 93;
@@ -1091,8 +1092,8 @@ START_TEST(TEST_SINGLE_TLV_EXT_LEN(secondary_tlv, single_word, with_fcs)) {
 }
 END_TEST
 
-
-START_TEST(TEST_SINGLE_TLV_EXT_LEN_ZERO(no_final)) {
+#define TEZ_NF TEST_SINGLE_TLV_EXT_LEN_ZERO(no_final)
+START_TEST(TEZ_NF) {
   static const uint32_t time_s = 56789;
   static const uint32_t time_ns = 12345;
   static const size_t shortish = 93;
@@ -1115,7 +1116,8 @@ END_TEST
 
 
 /* process_single_packet() */
-START_TEST(TEST_SINGLE_PROCESS_TLV(ignores_tlv, no_tlv_ext)) {
+#define SPT_IN TEST_SINGLE_PROCESS_TLV(ignores_tlv, no_tlv_ext)
+START_TEST(SPT_IN) {
   static const uint32_t time_s = 56789;
   static const uint32_t time_ns = 12345;
   static const size_t shortish = 93;
@@ -1138,8 +1140,8 @@ START_TEST(TEST_SINGLE_PROCESS_TLV(ignores_tlv, no_tlv_ext)) {
 }
 END_TEST
 
-
-START_TEST(TEST_SINGLE_PROCESS_TLV(shortens, with_fcs)) {
+#define SPT_SW TEST_SINGLE_PROCESS_TLV(shortens, with_fcs)
+START_TEST(SPT_SW) {
   static const uint32_t time_s = 56789;
   static const uint32_t time_ns = 12345;
   static const size_t shortish = 93;
@@ -1162,8 +1164,8 @@ START_TEST(TEST_SINGLE_PROCESS_TLV(shortens, with_fcs)) {
 }
 END_TEST
 
-
-START_TEST(TEST_SINGLE_PROCESS_TLV(shortens, without_fcs)) {
+#define SPT_SO TEST_SINGLE_PROCESS_TLV(shortens, without_fcs)
+START_TEST(SPT_SO) {
   static const uint32_t time_s = 56789;
   static const uint32_t time_ns = 12345;
   static const size_t shortish = 93;
@@ -1184,9 +1186,8 @@ START_TEST(TEST_SINGLE_PROCESS_TLV(shortens, without_fcs)) {
 }
 END_TEST
 
-
-START_TEST(TEST_SINGLE_PROCESS_TLV(sets_flags_and_shortens,
-                                   with_invalid_tlv_fcs)) {
+#define SPT_FI TEST_SINGLE_PROCESS_TLV(sets_flags_and_shortens, with_invalid_tlv_fcs)
+START_TEST(SPT_FI) {
   static const uint32_t time_s = 56789;
   static const uint32_t time_ns = 12345;
   static const size_t shortish = 93;
@@ -1212,7 +1213,8 @@ END_TEST
 
 
 /* process_packed_stream_packet() with packed_tlv_ext_len()  */
-START_TEST(TEST_PACKED_PROCESS_TLV(shortens, with_fcs)) {
+#define PPT_SW TEST_PACKED_PROCESS_TLV(shortens, with_fcs)
+START_TEST(PPT_SW) {
   static const size_t payload_len = 351;
   static const uint32_t time_s = 1;
   static const uint32_t time_ns = 2;
@@ -1245,8 +1247,8 @@ START_TEST(TEST_PACKED_PROCESS_TLV(shortens, with_fcs)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PACKED_PROCESS_TLV(shortens, without_fcs)) {
+#define PPT_SO TEST_PACKED_PROCESS_TLV(shortens, without_fcs)
+START_TEST(PPT_SO) {
   static const size_t payload_len = 351;
   static const uint32_t time_s = 1;
   static const uint32_t time_ns = 2;
@@ -1279,9 +1281,8 @@ START_TEST(TEST_PACKED_PROCESS_TLV(shortens, without_fcs)) {
 }
 END_TEST
 
-
-START_TEST(TEST_PACKED_PROCESS_TLV(sets_flags_and_shortens,
-                                   with_invalid_tlv_fcs)) {
+#define PPT_SI TEST_PACKED_PROCESS_TLV(sets_flags_and_shortens, with_invalid_tlv_fcs)
+START_TEST(PPT_SI) {
   static const size_t payload_len = 351;
   static const uint32_t time_s = 1;
   static const uint32_t time_ns = 2;
@@ -1314,14 +1315,6 @@ START_TEST(TEST_PACKED_PROCESS_TLV(sets_flags_and_shortens,
   }
 }
 END_TEST
-
-/* template - less typing
-START_TEST(TEST_that_) {
-
-}
-END_TEST
-
-*/
 
 /* set up and run --------------------------------------------------------- */
 
