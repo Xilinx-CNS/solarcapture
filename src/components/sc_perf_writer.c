@@ -618,7 +618,7 @@ static void sc_async_writer_submit_list(struct sc_node* node,
   struct iocb *iocbs_to_submit[MAX_SUBMIT];
 
   if( ((int64_t)(st->file_write_offset) > (int64_t)st->file_size - ALLOC_STRIDE/8 )) {
-    st->alloc_till = ALIGN_FWD(st->file_size + 1, ALLOC_STRIDE);
+    st->alloc_till = ALIGN_FWD(st->file_size + 1, (uint64_t)ALLOC_STRIDE);
     fallocate_fn(st->fd, 0, st->file_size, st->alloc_till - st->file_size);
     st->file_size = st->alloc_till;
   }

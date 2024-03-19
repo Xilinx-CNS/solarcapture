@@ -39,6 +39,7 @@ Available options:
 Available test targets:
     all         All C and Python unit tests.
     c           The C unit test suite.
+    python      The Python unit tests
 
 Pre-defined test suites:
     ${!suites[@]}
@@ -105,6 +106,45 @@ c_unittest()
     outfiles=$(ls $ut_top/*.out || true)
 }
 
+_run_python_unittest()
+{
+    test=$1
+    shift
+    test_opts="$*"
+
+    test_name=$(basename $test)
+
+    # The unittest progs write a results file to $test.out in current dir,
+    # so we cd to $ut_top before running.
+    if [ $opt_xml -eq 0 ]; then
+        # More output to console for interactive users
+        log
+        log "*** ${test}"
+        ( cd $ut_top && $test $test_opts; true ) 2>&1 | tee ${ut_top}/${test_name}.log
+        cat ${ut_top}/${test_name}.out 2>/dev/null || true
+    else
+        # Less output to console for Jenkins
+        if ( cd $ut_top && $test $test_opts ) >${test_name}.log 2>&1; then
+            log "PASS ${test}"
+        else
+            log "FAIL ${test}"
+        fi
+    fi
+}
+
+python_unittest()
+{
+    testlist=${*//,/ }
+    log
+    log "Python tests: ${testlist}"
+    [ -n "$testlist" ] || testlist=$(${topdir}/src/unit_tests/python-unit-tests.sh --list || true)
+    for test in $testlist; do
+        _run_python_unittest ${topdir}/$test
+    done
+
+    # Process "Check" test results
+    outfiles=$(ls $ut_top/*.out || true)
+}
 
 count_passes()
 {
@@ -121,7 +161,7 @@ count_passes()
     fi
     log
     log "=============================================================================="
-    log "C Unit tests:"
+    log "Unit tests:"
     log "$passes PASS, $fails FAIL, $errors Test Errors"
     log "=============================================================================="
 }
@@ -146,9 +186,12 @@ run_tests()
         [ -n "${suites[$tt]}" ] && tt="${suites[$tt]}"
         for t in $tt; do
             case "$t" in
-                all)    c_unittest ;;
+                all)    c_unittest
+                        python_unittest ;;
                 c)      c_unittest ;;
+                python) python_unittest ;;
                 c=*)    c_unittest ${t#c=} ;;
+                python=*) python_unittest ${t#python=} ;;
                 *)      fail "Unknown test group: $t
 Did you forget to prefix the test with c= ?
 " ;;

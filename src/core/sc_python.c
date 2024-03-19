@@ -801,22 +801,30 @@ static PyObject* sc_stream_get_mcast_group(PyObject* self, PyObject* args)
   uint16_t vlan_id;
 
   if( ! PyArg_ParseTuple(args, "OOs", &attr_dict, &tg_obj, &stream_str) ||
-      ! sc_py_get_session(tg_obj, &tg) )
+      ! sc_py_get_session(tg_obj, &tg) ) {
+    fprintf( stderr, "error: sc_stream_get_mcast_group: No session provided\n" );
     return NULL;
-  if( (attr = sc_attr_from_py(attr_dict)) == NULL )
+    }
+  if( (attr = sc_attr_from_py(attr_dict)) == NULL ) {
+    fprintf( stderr, "error: sc_stream_get_mcast_group: Could not parse attributes.\n");
     return NULL;
+    }
   stream = sc_stream_from_py(stream_str, attr, tg);
   sc_attr_free(attr);
-  if( stream == NULL )
+  if( stream == NULL ) {
+    fprintf( stderr, "error: sc_stream_get_mcast_group: Stream is empty.\n");
     return NULL;
+    }
 
-  if( __sc_stream_extract_mcast_group(stream, &dhost) != 0 )
+  if( __sc_stream_extract_mcast_group(stream, &dhost) != 0 ) {
     return Py_None;
-  else if( __sc_stream_extract_vlan_id(stream, &vlan_id) != 0 )
+  }
+  else if( __sc_stream_extract_vlan_id(stream, &vlan_id) != 0 ) {
     return PyBytes_FromFormat("%d.%d.%d.%d", dhost >> 24,
                                (dhost >> 16) & 0xFF,
                                (dhost >> 8) & 0xFF,
                                dhost & 0xff);
+  }
   else
     return PyBytes_FromFormat("vid=%d,%d.%d.%d.%d", vlan_id,
                                dhost >> 24,

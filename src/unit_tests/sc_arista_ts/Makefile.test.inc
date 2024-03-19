@@ -16,17 +16,17 @@ ${ut_sc_arista_ts_cmn_OBJS}: INCLUDES += -I${SRC_DIR}/components -I${SRC_DIR}/in
 ${OBJ_PATH}/unit_tests/sc_arista_ts/ut_arista%_ts.o: ${MAKEFILE_LIST}
 ${OBJ_PATH}/unit_tests/sc_arista_ts/ut_arista%_ts.o: INCLUDES += -I${SRC_DIR}/components -I${SRC_DIR}/include -I${SRC_DIR}/core
 
-${BIN_PATH}/ut_sc_arista7150_ts: ${OBJ_PATH}/unit_tests/sc_arista_ts/ut_arista7150_ts.o ${ut_sc_arista_ts_cmn_OBJS} ${LIBCHECK}
+${BIN_PATH}/ut_sc_arista7150_ts: ${OBJ_PATH}/unit_tests/sc_arista_ts/ut_arista7150_ts.o ${ut_sc_arista_ts_cmn_OBJS}
 	mkdir -p ${@D}
 	${CC} ${LDFLAGS} -o $@ $< ${ut_sc_arista_ts_cmn_OBJS} ${LIBCHECK} -lm
 
-${BIN_PATH}/ut_sc_arista7280_64bit_ts: ${OBJ_PATH}/unit_tests/sc_arista_ts/ut_arista7280_64bit_ts.o ${ut_sc_arista_ts_cmn_OBJS} ${LIBCHECK}
+${BIN_PATH}/ut_sc_arista7280_64bit_ts: ${OBJ_PATH}/unit_tests/sc_arista_ts/ut_arista7280_64bit_ts.o ${ut_sc_arista_ts_cmn_OBJS}
 	mkdir -p ${@D}
-	${CC} ${LDFLAGS} -o $@ $< ${ut_sc_arista_ts_cmn_OBJS} ${LIBCHECK} -lm
+	${CC} ${LDFLAGS} -o $@ $< ${ut_sc_arista_ts_cmn_OBJS} ${LIBCHECK}
 
-${BIN_PATH}/ut_sc_arista7280_48bit_ts: ${OBJ_PATH}/unit_tests/sc_arista_ts/ut_arista7280_48bit_ts.o ${ut_sc_arista_ts_cmn_OBJS} ${LIBCHECK}
+${BIN_PATH}/ut_sc_arista7280_48bit_ts: ${OBJ_PATH}/unit_tests/sc_arista_ts/ut_arista7280_48bit_ts.o ${ut_sc_arista_ts_cmn_OBJS}
 	mkdir -p ${@D}
-	${CC} ${LDFLAGS} -o $@ $< ${ut_sc_arista_ts_cmn_OBJS} ${LIBCHECK} -lm
+	${CC} ${LDFLAGS} -o $@ $< ${ut_sc_arista_ts_cmn_OBJS} ${LIBCHECK}
 
 ALL_SRCS += ${ut_sc_arista_ts_cmn_SRCS}
 

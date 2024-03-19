@@ -8,12 +8,13 @@ UT_TOP     := $(TOP_DIR)/build/ut
 
 UT_SRC_TOP := $(SRC_DIR)/unit_tests
 BIN_PATH    := $(UT_TOP)/bin
-OBJ_PATH    := $(UT_TOP)/obj
+LIB_DIR    := ${SRC_DIR}/lib/
 
+OBJ_PATH    := $(UT_TOP)/obj
 
 # ----------------------------------------------------------------------------
 
-CC = gcc -fprofile-arcs -ftest-coverage
+CC = gcc -fprofile-arcs -ftest-coverage -fPIE
 CYTHON = cython
 
 INCLUDES := -I${SRC_DIR}/include -I${UT_SRC_TOP}/include \
@@ -24,9 +25,14 @@ DEFINES  := -DUT_TEST
 LIBS :=
 
 CFLAGS   := -g -O0 -std=gnu89
-LDFLAGS  := -g
+LDFLAGS  := -g -L${LIB_DIR}
 
-LIBCHECK := -lcheck
+LIBCHECK := -lcheck -lrt -lpthread -lm	-lsubunit
+
+# Required library for Ubuntu
+# But for RedHat we need to create a stub
+-lsubunit:
+	echo '!<arch>' > ${LIB_DIR}/libsubunit.a
 
 # Disable built-in rules
 %: %.c

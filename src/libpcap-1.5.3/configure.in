@@ -824,7 +824,7 @@ if test $ac_cv_lbl_dag_api = yes; then
 		AC_CHECK_LIB([vdag],[vdag_set_device_info], [ac_dag_have_vdag="1"], [ac_dag_have_vdag="0"])
 		if test "$ac_dag_have_vdag" = 1; then
 			AC_DEFINE(HAVE_DAG_VDAG, 1, [define if you have vdag_set_device_info()])
-			LIBS="$LIBS -lpthread"
+			LIBS="$LIBS -lpthread -pthread"
 		fi
 	fi
 
@@ -1136,7 +1136,8 @@ if test "$with_sfsc" != no; then
 		fi
 	else
 		saved_ldflags=$LDFLAGS
-		LDFLAGS="$LDFLAGS -L$sfsc_lib_dir"
+#		LDFLAGS="$LDFLAGS -L$sfsc_lib_dir"
+		LDFLAGS="$LDFLAGS -L$sfsc_lib_dir -lpthread -pthread"
 		AC_CHECK_LIB([solarcapture$SC_VER_MAJ], [sc_session_alloc], [ac_cv_lbl_sfsc_api="yes"], [ac_cv_lbl_sfsc_api="no"])
 		LDFLAGS="$saved_ldflags"
 
@@ -1146,7 +1147,8 @@ if test "$with_sfsc" != no; then
 			fi
 		else
 			V_INCLS="$V_INCLS -I$sfsc_include_dir"
-			LIBS="$LIBS $sfsc_lib_dir/libsolarcapture$SC_VER_MAJ.a -lrt -ldl -lm -laio -lz"
+#			LIBS="$LIBS $sfsc_lib_dir/libsolarcapture$SC_VER_MAJ.a -lrt -ldl -lm -laio -lz"
+			LIBS="$LIBS $sfsc_lib_dir/libsolarcapture$SC_VER_MAJ.a -lrt -ldl -lm -laio -lz -lpthread -pthread"
 			if test "$V_PCAP" != sfsc ; then
 				SSRC="pcap-sfsc.c pcap-sfsc-poolnode.c"
 			fi
@@ -1636,7 +1638,8 @@ if test "x$enable_canusb" != "xno" ; then
 		[
 		    AC_DEFINE(PCAP_SUPPORT_CANUSB, 1, [target host supports canusb])
 		    CANUSB_SRC=pcap-canusb-linux.c
-		    LIBS="-lusb-1.0 -lpthread $LIBS"
+#		    LIBS="-lusb-1.0 -lpthread $LIBS"
+		    LIBS="-lusb-1.0 -lpthread -pthread $LIBS"
 		    AC_MSG_NOTICE(canusb sniffing is supported)
 		],
 		AC_MSG_NOTICE(canusb sniffing is not supported; install libusb1.0 lib devel to enable it)
