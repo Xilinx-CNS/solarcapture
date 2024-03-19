@@ -21,6 +21,7 @@ def is_int(str):
 def auto_justify_col(col, width):
     if min(map(is_int, col[1:])):
         # All fields (possibly excepting first) are integers.
+
         return [f.rjust(width) for f in col]
     else:
         return [f.ljust(width) for f in col]

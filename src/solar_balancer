@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 '''
 SPDX-License-Identifier: MIT
 X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
@@ -239,7 +239,7 @@ def main(args):
 if __name__ == '__main__':
     try:
         main(sys.argv[1:])
-    except (sc.SCError, ValueError), e:
+    except (sc.SCError, ValueError) as e:
         s = str(e)
         if 'ERROR:' not in s:
             s = 'ERROR: ' + s

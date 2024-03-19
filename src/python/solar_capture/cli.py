@@ -147,7 +147,7 @@ def help_all(args):
 
 def read_arg_file(f, known_args):
     repeatable_keys = [x.name for x in known_args.values() if x.repeatable]
-    data = file(f).read()
+    data = open(f).read()
     args = []
     arg_indexes = {} # key -> index into args
     for line in data.split('\n'):
