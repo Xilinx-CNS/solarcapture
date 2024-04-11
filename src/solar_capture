@@ -1196,7 +1196,7 @@ def read_str(fd):
     while True:
         try:
             b = os.read(fd,1)
-            if b[0] == '\0':
+            if b[0] == 0:
                 return rstr
             else:
                 rstr += b
