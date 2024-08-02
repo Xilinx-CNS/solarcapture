@@ -989,7 +989,9 @@ def process(sc_tg, captures):
             core_id = -1
         else:
             name = int(core_id)
-        if name not in threads:
+        if name not in threads or name == -1:
+            # New thread either implicitly due to new name
+            # or explicitly due to setting -1
             core_id = int(core_id)
             attr = dict(batch_attr, affinity_core=core_id, busy_wait=busy_wait)
             threads[name] = sc_tg.new_thread(attr=attr)
