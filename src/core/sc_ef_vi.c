@@ -932,9 +932,16 @@ static inline void timestamp_pkt(struct sc_ef_vi* vi, struct sc_pkt* pkt)
 {
   if( vi->flags & vif_rx_timestamps ) {
     void* dma = (char*)pkt + PKT_DMA_OFF;
+#ifdef ef_vi_receive_get_precise_timestamp
+    /* Onload 9 new unified mechanism for timestamping - old mechanism is deprecated */
+    ef_precisetime ts;
+    ef_vi_receive_get_precise_timestamp(&vi->vi, dma, &ts);
+#else /* ef_vi_receive_get_precise_timestamp */
+    /* Prior versions of Onload timestamping mechanism */
     unsigned ts_flags;
     struct timespec ts;
     ef_vi_receive_get_timestamp_with_sync_flags(&vi->vi, dma, &ts, &ts_flags);
+#endif /* ef_vi_receive_get_precise_timestamp */
     /* If the above call fails we get a zero timestamp.  (The only expected
      * reason for this happening is receiving packets via the loopback
      * path).
