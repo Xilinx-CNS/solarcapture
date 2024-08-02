@@ -69,12 +69,13 @@ static int sc_vi_group_alloc__ef_vi(struct sc_vi_group** sc_vi_group,
     return rc;
   }
   if( attr->strip_fcs >= 0 ) {
-    if( vi_group->sc_vi_group.svg_strip_fcs != attr->strip_fcs ) {
+    int current_fcs_strip = vi_group->sc_vi_group.svg_strip_fcs;
+    if( current_fcs_strip != attr->strip_fcs ) {
       free(vi_group);
       return sc_set_err(tg, EINVAL, "ERROR: %s: Set strip_fcs=%"PRId64", but interface"
                         " %s set to %d\n", __func__,
                         attr->strip_fcs, fcs_interface,
-                        vi_group->sc_vi_group.svg_strip_fcs);
+                        current_fcs_strip);
     }
   }
 
