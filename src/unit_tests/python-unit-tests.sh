@@ -2,6 +2,7 @@
 
 TESTS+=( src/test/invoke_wrapper.sh )
 TESTS+=( src/test/test_monitor.sh )
+TESTS+=( src/test/hardware_timestamps.sh )
 
 if [[ "$1" == "--list" ]]; then
   for T in "${TESTS[@]}"; do
