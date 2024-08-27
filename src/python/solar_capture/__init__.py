@@ -75,8 +75,8 @@ SC_VER = sc.SC_VER
 VLAN_PROCFILE = '/proc/net/vlan/config'
 def get_vlan_list():
     if os.path.isfile(VLAN_PROCFILE):
-        for line in file(VLAN_PROCFILE):
-            spl = map(str.strip, line.split('|'))
+        for line in open(VLAN_PROCFILE,'r').readlines():
+            spl = list(map(str.strip, line.split('|')))
             if len(spl) == 3 and spl[1].isdigit():
                 yield spl
 
