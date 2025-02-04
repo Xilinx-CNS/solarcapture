@@ -1197,14 +1197,14 @@ def read_str(fd):
     rstr = ""
     while True:
         try:
-            b = os.read(fd,1)
-            if b[0] == 0:
+            byte = os.read(fd, 1)
+            if byte == b'\x00':
                 return rstr
             else:
-                rstr += b
+                rstr += byte.decode('utf-8')
         except OSError as e:
             if e.errno == errno.EINTR:
-                pass # Interrupted by a signal
+                pass  # Interrupted by a signal, retry read
             else:
                 raise
 
