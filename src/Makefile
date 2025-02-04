@@ -37,7 +37,7 @@ DOC_DIR         := $(prefix)/share/doc
 
 SC_VER_MAJ	:= 1
 SC_VER_MIN	:= 7
-SC_VER_REL	:= 0
+SC_VER_REL	:= 1
 # This gets a hash from the files we're using if we want to do that instead
 # SC_VER_BUILD    := $(shell { find ${SRCDIR} -regex ".*\.[ch]" | sort | xargs md5sum | md5sum | cut -d' ' -f1; } )
 # If we don't have a git tag, just say unknown
