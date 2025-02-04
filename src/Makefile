@@ -549,6 +549,8 @@ tarball: install_python install_nonpython docs_pdf
 	tar czf solar_capture-$(SC_VER_STR).tgz -C ${DESTDIR} .
 	cp solar_capture-$(SC_VER_STR).tgz ${DESTDIR}/solar_capture-$(SC_VER_STR).tgz
 
+version: $(info ${SC_VER_STR})
+
 .PHONY: install
 
 install:
