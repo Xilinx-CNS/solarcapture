@@ -1209,7 +1209,69 @@ def read_str(fd):
                 raise
 
 
+class SemVer():
+    def __init__(self, version_string="0"):
+        try:
+            # Expect 1.2.3.4 format - but sometimes there's a suffix
+            # Preserve it, but don't use it for matching
+            self.affixes = version_string.strip().split(' ')
+            self.ver = self.affixes[0]
+            self.parts = list(map(int, self.ver.split('.')))
+            self.valid = True
+        except ValueError:
+            self.parts = [0]
+            self.valid = False
+    def __lt__(self, other):
+        for i in range(len(self.parts)):
+            part = self.parts[i]
+            try:
+                opart = other.parts[i]
+            except IndexError:
+                opart = 0
+            if part < opart:
+                return True
+            elif part > opart:
+                return False
+        if len(other.parts) > len(self.parts):
+            return True
+        return False
+    def __eq__(self, other):
+        return self.ver == other.ver
+    def __str__(self):
+       return self.ver
+    def major(self):
+       return self.parts[0]
+
+def check_onload_version():
+    """Check that the version of Onload currently running matches
+       the one that we are compiled against, and warn if not """
+    compiled = SemVer(sc.sc.efvi_ver())
+    try:
+        with open("/sys/module/onload/version", "r") as f:
+            onload_version = f.read().rstrip()
+            current = SemVer(onload_version)
+    except FileNotFoundError:
+        sys.stderr.write("WARNING: Onload module does not seem to be available\n")
+        current = SemVer()
+
+    againstmsg = " was compiled against (" + str(compiled) + "): you are currently using Onload " + str(current) + "\n"
+    if current == compiled:
+        return True
+    elif not current.valid:
+        msg = "INFO: Onload is not reporting a standard version number (e.g. running from a git branch) different from the one it"
+    elif current < compiled:
+        msg = "ERROR: It is not safe to run SolarCapture on an older version of Onload than it"
+    elif current.major() != compiled.major():
+        msg = "WARNING: SolarCapture"
+    elif current != compiled:
+        msg = "INFO: SolarCapture"
+
+    msg = msg + againstmsg
+    sys.stderr.write(msg)
+    return False
+
 def main(args):
+    check_onload_version()
     captures = sc.cli.parse_args(args, known_args, usage_text,
                                  handle_unknown_arg=handle_other_arg)
     if not captures:

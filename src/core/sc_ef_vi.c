@@ -13,12 +13,10 @@
 
 #include <net/if.h>
 
-
 enum sc_ef_vi_backlog_state {
   state_on_backlog,
   state_current,
 };
-
 
 #define BACKLOG_BATCH (64)
 
@@ -1821,3 +1819,4 @@ static void sc_ef_vi_ps_on_ref_pool_threshold(struct sc_callback* cb,
     sc_pool_on_threshold(&(ps_vi->ref_pkt_pool->pp_public),
                          ps_vi->backlog_cb, ps_vi->backlog_threshold);
 }
+

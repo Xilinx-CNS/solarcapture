@@ -13,6 +13,8 @@
 #include <sys/types.h>
 #include <grp.h>
 
+#include "compiled_ef_vi_version.h"
+
 /* Python2 implemented this as PyString_AsString, for python3 we have to go
    via utf8.
    This will return a failure if non-ascii unicode gets used.
@@ -906,6 +908,12 @@ static PyObject* join_mcast_group(PyObject* self, PyObject* args)
 }
 
 
+static PyObject* efvi_ver(PyObject* self, PyObject* args)
+{
+  const char* version = COMPILED_EF_VI_VERSION;
+  return PyUnicode_Decode(version, strlen(version), "utf-8", "strict");
+}
+
 static PyObject* attr_doc(PyObject* self, PyObject* args)
 {
   PyObject* list;
@@ -967,6 +975,7 @@ static PyMethodDef solar_capture_c_methods[] = {
 
   method(sc_initgroups, "C initgroups: initialise the group access list"),
 
+  method(efvi_ver, "Retreive version of libraries SolarCapture is linked against"),
   method(attr_doc, "Retrieve documentation for attributes"),
 
   {NULL, NULL, 0, NULL}        /* Sentinel */

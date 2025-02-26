@@ -12,6 +12,7 @@
 #include <sys/timerfd.h>
 #include <sys/eventfd.h>
 
+#include "compiled_ef_vi_version.h"
 
 __thread struct sc_thread* sc_thread_current;
 
@@ -40,9 +41,9 @@ int sc_session_alloc(struct sc_session** tg_out, const struct sc_attr* attr)
   sc_dlist_push_tail(&all_sessions, &(tg->tg_all_sessions_link));
 
   if( tg->tg_id == 0 ) {
-    sc_info(tg, "SolarCapture %s.  "
-            "Copyright (c) 2012-2019 Xilinx, Inc.\n",
-            SC_VER);
+    sc_info(tg, "SolarCapture %s.  (ef_vi %s)\n"
+            "\tCopyright (c) 2012-2025 Advanced Micro Devices, Inc.\n",
+            SC_VER, COMPILED_EF_VI_VERSION );
     const char* src_id = "%{SC_SRC_ID}"; /* replaced by packaging script */
     sc_trace(tg, "%s: src_id=%s\n", __func__, src_id);
 #ifndef NDEBUG

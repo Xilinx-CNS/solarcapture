@@ -175,5 +175,4 @@ extern int sc_netif_get(struct sc_netif** netif_out,
 
 extern int sc_netif_free(struct sc_session* tg, struct sc_netif* netif);
 
-
 #endif /* __SC_EF_VI_H_ */

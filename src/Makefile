@@ -18,7 +18,6 @@ INC_DIR         := $(prefix)/include
 LIB_DIR         := $(prefix)/lib64
 DOC_DIR         := $(prefix)/share/doc
 
-
 # Versioning:
 # This release of SolarCapture has major version 1.  This must never be
 # changed!  (If we wish to break backwards compatibility, we will release
@@ -54,6 +53,12 @@ _VER_INC := -I${SRCDIR}/include
 SCLIB_VER_MAJOR := ${SC_VER_MAJ}
 SCLIB_VER_MINOR := $(shell { echo "${H}include \"solar_capture_ext.h\""; echo "SC_API_VER_MAX"; } | cpp ${_VER_INC} | tail -1 )
 SCLIB_VER_PATCH := 0
+
+# Enable the EFVI Version check - version built against vs version run against
+COMPILED_EFVI_VER	:= compiled_ef_vi_version
+COMPILED_EFVI_VER_H	:= $(SRCDIR)/include/$(COMPILED_EFVI_VER).h
+COMPILED_EFVI_VER_C	:= $(SRCDIR)/core/$(COMPILED_EFVI_VER).c
+COMPILED_EFVI_VER_BIN	:= $(SRCDIR)/$(COMPILED_EFVI_VER)
 
 ifndef ARCH
 ARCH		:= $(shell uname -m)
@@ -268,7 +273,7 @@ test_nodes: $(TEST_NODES)
 test_apps: $(TEST_APPS)
 
 
-$(CORE_OBJS) $(CORE_DBG_OBJS): core/*.h include/*.h include/*/*.h
+$(CORE_OBJS) $(CORE_DBG_OBJS): $(COMPILED_EFVI_VER_H) core/*.h include/*.h include/*/*.h
 $(CORE_OBJS) $(CORE_DBG_OBJS): SC_CFLAGS += -fPIC
 $(CORE_OBJS) $(CORE_DBG_OBJS): SC_CFLAGS += -DSC_VER='"$(SC_VER_STR)"'
 $(BUILTIN_OBJS) $(BUILTIN_DBG_OBJS):  include/*.h include/*/*.h
@@ -276,12 +281,22 @@ $(BUILTIN_OBJS) $(BUILTIN_DBG_OBJS): SC_CFLAGS += -fPIC
 $(PYTHON_OBJS): SC_CFLAGS += $(PYTHON_CFLAGS)
 $(PYTHON_OBJS): SC_CFLAGS += -DSC_VER='"$(SC_VER_STR)"'
 
+# Creating the header with current verison of ef_vi libraries -
+# We build a small binary against them, and save its output as a header that other
+# build steps then consume.  So header depends on binary, binary depends on source file.
+$(COMPILED_EFVI_VER_BIN): $(COMPILED_EFVI_VER_C) ${EFVI_LIB}
+	echo Creating $(COMPILED_EFVI_VER_BIN)
+	$(CC) $(COMPILED_EFVI_VER_C) -o $@ ${EFVI_LIB}
+$(COMPILED_EFVI_VER_H): $(COMPILED_EFVI_VER_BIN)
+	echo Creating $(COMPILED_EFVI_VER_H)
+	$(COMPILED_EFVI_VER_BIN) > $@
+
+
 %.o: %.c
 	$(CC) $(CFLAGS) $(SC_CFLAGS) $(SC_INC) -c $< -o $@
 
 %.dbg.o: %.c
 	$(CC) $(CFLAGS_DBG) $(SC_CFLAGS) $(SC_INC) -c $< -o $@
-
 
 AUTOCONF_PATH ?= $(shell dirname $(shell which autoconf))
 # configure.in is the definitive -- ensure configure is up-to-date
@@ -442,7 +457,9 @@ clean: pkg_clean
 	rm -rf ../docs/c_bindings
 	make -C unit_tests clean
 	rm -f solar_capture-$(SC_VER_STR).tgz
-
+	# Deliberately removing this header, it's ephemeral
+	rm -f $(COMPILED_EFVI_VER_H)
+	rm $(COMPILED_EFVI_VER_BIN)
 
 .PHONY: install_python install_core install_live install_pro install_nonpython
 .PHONY: install_internal
@@ -560,4 +577,5 @@ install:
 	# So no fully-automated install is available.
 	# Try "make tarball" instead, which will output a build products directory (and tgz)
 	# Check that you like that layout, and if you do, you can untar to '/' to slot it all in.
+
 
