@@ -120,7 +120,9 @@ static inline int fetch_arista7280_64bit_time(uint8_t* packet_buffer, uint64_t* 
   struct arista7280_64bit_field_packed* packed = (void*)(packet_buffer + MAC_ADDRESSES_SIZE);
   if( packed->ether_type != htons(ARISTA7280_ETHERTYPE) ||
       (packed->version != htons(ARISTA7280_PROTOCOL_VERSION_64BIT_TAI) &&
-       packed->version != htons(ARISTA7280_PROTOCOL_VERSION_64BIT_UTC)) ||
+       packed->version != htons(ARISTA7280_PROTOCOL_VERSION_64BIT_UTC) &&
+       packed->version != htons(ARISTA7280_PROTOCOL_VERSION_64BIT_TAI_R3) &&
+       packed->version != htons(ARISTA7280_PROTOCOL_VERSION_64BIT_UTC_R3)) ||
       packed->sub_type != htons(ARISTA7280_PROTOCOL_SUBTYPE) ||
       ntohl(packed->nsec) >= SC_NS_IN_S )
     return -1;

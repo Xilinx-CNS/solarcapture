@@ -150,7 +150,9 @@ fetch_arista7280_48bit_field(const struct sc_arista7280_48bit_ts* dt,
     packed = (void*)(packet_buffer + MAC_ADDRESSES_SIZE);
     if( packed->ether_type != htons(ARISTA7280_ETHERTYPE) ||
         (packed->version != htons(ARISTA7280_PROTOCOL_VERSION_48BIT_TAI) &&
-         packed->version != htons(ARISTA7280_PROTOCOL_VERSION_48BIT_UTC)) ||
+         packed->version != htons(ARISTA7280_PROTOCOL_VERSION_48BIT_UTC) &&
+         packed->version != htons(ARISTA7280_PROTOCOL_VERSION_48BIT_TAI_R3) &&
+         packed->version != htons(ARISTA7280_PROTOCOL_VERSION_48BIT_UTC_R3)) ||
         packed->sub_type != htons(ARISTA7280_PROTOCOL_SUBTYPE) )
       return -1;
 
