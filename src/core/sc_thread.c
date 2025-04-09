@@ -254,7 +254,9 @@ static void sc_thread_state_request(struct sc_thread* t,
     if( new_state != SC_THRD_STATE_STOP ) {
       if( t->wakeup_cb != NULL ) {
         uint64_t v;
-        read(t->wakeup_eventfd, &v, 8);
+        /* Explicilty discarding result - we're just attempting to notify
+         * and if they've stopped waiting, that's ok. */
+        (void) read(t->wakeup_eventfd, &v, 8);
       }
       SC_TEST(pthread_create(&t->pthread_id, NULL, sc_thread_fn, t) == 0);
       SC_TEST(pthread_detach(t->pthread_id) == 0);
