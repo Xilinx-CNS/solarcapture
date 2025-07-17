@@ -464,14 +464,8 @@ clean: pkg_clean
 .PHONY: install_python install_core install_live install_pro install_nonpython
 .PHONY: install_internal
 
-PY_SITE_DIR := $(shell $(SC_PYTHON) -c "\
-import sys; \
-try: \
-    from distutils.sysconfig import get_python_lib; \
-    print(get_python_lib()); \
-except: \
-    import sysconfig; \
-    print(sysconfig.get_path('purelib'))")
+PY_SITE_DIR := $(shell $(SC_PYTHON) -c \
+  "exec(\"try:\n    import distutils.sysconfig as d,sys\n    sys.stdout.write(d.get_python_lib())\nexcept:\n    import sysconfig,sys\n    sys.stdout.write(sysconfig.get_path('purelib'))\")")
 
 py_sitelib_dir := $(DESTDIR)${PY_SITE_DIR}/solar_capture
 docdir    := $(DESTDIR)$(DOC_DIR)/solar_capture-$(SC_VER_STR)
