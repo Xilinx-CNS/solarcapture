@@ -1030,6 +1030,7 @@ def process(sc_tg, captures):
     r_fd, w_fd = os.pipe()
     prev_signal_vi = None
     postrotate_cmds = {}
+    processed_igmp_filters_interfaces = {}
     for i, capture in enumerate(captures):
         for stream in capture['join_streams']:
             capture['streams'].append(stream)
@@ -1042,7 +1043,10 @@ def process(sc_tg, captures):
         if not capture.get('streams'):
             capture['streams'] = ['all']
         if capture['ptp']:
-            install_igmp_filters(capture['interface'])
+          interface = capture['interface']
+          if interface not in processed_igmp_filters_interfaces:
+            install_igmp_filters(interface)
+            processed_igmp_filters_interfaces[interface] = True
 
         cthreads = capture['capture_threads']
         wthread = capture['writeout_thread']
