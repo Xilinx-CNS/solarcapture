@@ -5,6 +5,17 @@ X-SPDX-Copyright-Text: Copyright (C) 2022, Advanced Micro Devices, Inc.
 '''
 
 import sys, time, os, copy, re, signal, pwd, errno, subprocess, select, shlex
+try:
+    from functools import cache
+except:
+    # Available from python 3.9 - but we still need to support older distributions
+    def cache(f):
+        intfs = {}
+        def wrapper(intf):
+            if intf not in intfs:
+                intfs[intf] = f(intf)
+            return intfs[intf]
+        return wrapper
 
 # Python2 was required for 1.6.10 and prior
 # Currently solar_capture requires python3
@@ -1030,7 +1041,6 @@ def process(sc_tg, captures):
     r_fd, w_fd = os.pipe()
     prev_signal_vi = None
     postrotate_cmds = {}
-    processed_igmp_filters_interfaces = {}
     for i, capture in enumerate(captures):
         for stream in capture['join_streams']:
             capture['streams'].append(stream)
@@ -1044,9 +1054,7 @@ def process(sc_tg, captures):
             capture['streams'] = ['all']
         if capture['ptp']:
           interface = capture['interface']
-          if interface not in processed_igmp_filters_interfaces:
-            install_igmp_filters(interface)
-            processed_igmp_filters_interfaces[interface] = True
+          install_igmp_filters(interface)
 
         cthreads = capture['capture_threads']
         wthread = capture['writeout_thread']
@@ -1184,7 +1192,8 @@ def install_mac_mcast_filter(intf, address):
                    "Are you running solar_capture as root?  Is ethtool "
                    "installed and in your path?" % (err >> 8))
 
-
+# Cached so that this is only run once per interface
+@cache
 def install_igmp_filters(intf):
     # Add filter for IGMP v2 traffic
     install_mac_mcast_filter(intf, "224.0.0.1")
