@@ -1188,9 +1188,9 @@ def install_mac_mcast_filter(intf, address):
     if err:
         err = os.system ("ethtool -U %s flow-type ether dst %s action 0" \
                          % (intf, mac))
-        sc.cli.err("Could not run ethtool to install filters (error %d).  "
+        sys.stderr.write("Could not run ethtool to install filters (error %d).  "
                    "Are you running solar_capture as root?  Is ethtool "
-                   "installed and in your path?" % (err >> 8))
+                   "installed and in your path?\n" % (err >> 8))
 
 # Cached so that this is only run once per interface
 @cache
