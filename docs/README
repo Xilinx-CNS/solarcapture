@@ -51,16 +51,20 @@ Dependencies
 
  SolarCapture uses device drivers that are included in the OpenOnload
  distribution.  
- We advise using Onload 9 for this version of SolarCapture.
+ We advise using Onload 9.1 for this version of SolarCapture.
  OpenOnload is available from:
-   https://www.xilinx.com/support/download/nic-software-and-drivers.html#open
+   https://github.com/Xilinx-CNS/Onload/
+ Or packaged release may be found at:
+   https://www.amd.com/en/support/ethernet-adapters/solarflare.html#onload
  These are needed for both building SolarCapture and running it.
  If Onload is not already installed, then please note that this has more
  requirements - such as kernel-devel.  See the Onload User Guide for details.
 
  SolarCapture also requires compatible hardware to run - an Onload-accelerated
- network card. (e.g. SN8522F, SN8542Q, X2522, X2542) X3 series is
- not currently supported.
+ network card. (e.g. SN8522F, SN8542Q, X2522, X2542)
+ X3 series is not currently supported.
+ X4 series has had basic testing.  There are known limitations around usage of
+ the express datapath, which bypasses SolarCapture.
 
  SolarCapture's command line utilities require python3.
 
