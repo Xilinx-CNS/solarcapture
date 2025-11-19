@@ -60,11 +60,10 @@ Dependencies
  If Onload is not already installed, then please note that this has more
  requirements - such as kernel-devel.  See the Onload User Guide for details.
 
- SolarCapture also requires compatible hardware to run - an Onload-accelerated
- network card. (e.g. SN8522F, SN8542Q, X2522, X2542)
+ SolarCapture requires compatible hardware to run - an Onload-accelerated
+ network card. (e.g. SFN8542Q, X2522, X2542)
  X3 series is not currently supported.
- X4 series has had basic testing.  There are known limitations around usage of
- the express datapath, which bypasses SolarCapture.
+ X4 series is supported using the enterprise datapath.  The express datapath is not supported.
 
  SolarCapture's command line utilities require python3.
 
@@ -224,6 +223,7 @@ Notes
    interface.
 
  - Timestamps are assigned either by the adapter (Flareon adapters with
+
    SolarCapture Pro license) or by the SolarCapture software.  Software
    timestamps are subject to system jitter caused by the OS kernel, BIOS
    and other processes.  To get timestamps that are as accurate as possible,
