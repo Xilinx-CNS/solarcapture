@@ -1456,6 +1456,13 @@ void sc_ef_vi_poll(struct sc_ef_vi* vi)
       break;
     }
 
+    case EF_EVENT_TYPE_RESET: {
+      sc_info(ef_vi_tg(vi), "%s: EF_EVENT_TYPE_RESET detected on VI %s; "
+              "ending stream and terminating session\n", __func__, vi->name);
+      sc_ef_vi_stop(vi);
+      return;
+    }
+
     default:
       sc_err(ef_vi_tg(vi), "%s: ERROR: unexpected event type=%d\n",
               __func__, (int) EF_EVENT_TYPE(vi->ef_events[i]));
@@ -1819,4 +1826,3 @@ static void sc_ef_vi_ps_on_ref_pool_threshold(struct sc_callback* cb,
     sc_pool_on_threshold(&(ps_vi->ref_pkt_pool->pp_public),
                          ps_vi->backlog_cb, ps_vi->backlog_threshold);
 }
-
