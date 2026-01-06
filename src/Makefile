@@ -1,3 +1,4 @@
+
 # SPDX-License-Identifier: MIT
 # X-SPDX-Copyright-Text: Copyright (C) 2023, Advanced Micro Devices, Inc.
 
@@ -242,16 +243,21 @@ DEFAULT_TGT	:= ${LIBSC_TGT} ${PYTHON_TGT} \
 CORE_OBJS	:= $(patsubst %,core/%.o,$(CORE_SRCS))
 CORE_DBG_OBJS	:= $(patsubst %.o,%.dbg.o,$(CORE_OBJS))
 
-.PHONY: default_all all libpcap libsolarcapture
+SCD_DIR		:= solar_clusterd
+SCD_TGT		:= $(SCD_DIR)/cluster_protocol.so
 
-default_all: $(DEFAULT_TGT)
+.PHONY: default_all all libpcap libsolarcapture docs_pdf_solar_clusterd
 
-all: $(DEFAULT_TGT) $(SC_PCAP_TGT) docs_pdf
+all: $(DEFAULT_TGT) $(SC_PCAP_TGT) docs_pdf solar_clusterd
 
 libpcap: $(SC_PCAP_TGT)
 
 libsolarcapture: $(SC_LIB)/$(LIBSC_STATIC)
 
+solar_clusterd: $(SCD_TGT)
+
+$(SCD_TGT):
+	make --directory=$(SCD_DIR) --makefile=Makefile
 
 .PHONY: all_nonpython all_python
 all_nonpython: ${LIBSC_TGT} ${SC_PCAP_TGT}
@@ -448,6 +454,7 @@ pkg_clean:
 	find . -name '*.so' -exec rm {} \;
 	find . -name '*.pyc' -exec rm {} \;
 	find . -name '*.a' -exec rm {} \;
+	make --directory=$(SCD_DIR) --makefile=Makefile clean
 	rm -f $(EXAMPLES) $(TEST_APPS) *.o *.so *.so.* *.a
 	rm -rf $(EMBED_PCAP_DIR) $(SC_PCAP_DIR) $(SC_LIB)
 	rm -rf $(PCAP)/configure
@@ -459,15 +466,16 @@ clean: pkg_clean
 	rm -f solar_capture-$(SC_VER_STR).tgz
 	# Deliberately removing this header, it's ephemeral
 	rm -f $(COMPILED_EFVI_VER_H)
-	rm $(COMPILED_EFVI_VER_BIN)
+	rm -f $(COMPILED_EFVI_VER_BIN)
 
-.PHONY: install_python install_core install_live install_pro install_nonpython
+.PHONY: install_python install_core install_live install_pro install_nonpython install_clusterd
 .PHONY: install_internal
 
 PY_SITE_DIR := $(shell $(SC_PYTHON) -c \
   "exec(\"try:\n    import distutils.sysconfig as d,sys\n    sys.stdout.write(d.get_python_lib())\nexcept:\n    import sysconfig,sys\n    sys.stdout.write(sysconfig.get_path('purelib'))\")")
 
 py_sitelib_dir := $(DESTDIR)${PY_SITE_DIR}/solar_capture
+scd_sitelib_dir := $(DESTDIR)${PY_SITE_DIR}/solar_clusterd
 docdir    := $(DESTDIR)$(DOC_DIR)/solar_capture-$(SC_VER_STR)
 bindir    := $(DESTDIR)$(BIN_DIR)
 sbindir   := $(DESTDIR)$(SBIN_DIR)
@@ -503,6 +511,15 @@ install_python:
 	cp -pr ${DOCSDIR}/c_bindings/html/* ${docdir}/c_api || true
 	mkdir -p $(docdir)/examples/
 	cp -pr $(SRCDIR)/examples/* $(docdir)/examples/ || true
+
+install_clusterd:
+	mkdir -p $(scd_sitelib_dir)
+	mkdir -p $(bindir)
+	install -m 755 $(SCD_TGT)                       $(scd_sitelib_dir)
+	install -m 644 $(SCD_DIR)/daemonize.py          $(scd_sitelib_dir)
+	install -m 644 $(SCD_DIR)/__init__.py           $(scd_sitelib_dir)
+	install -m 644 $(SCD_DIR)/parse_config.py       $(scd_sitelib_dir)
+	install -m 755 $(SCD_DIR)/solar_clusterd        $(bindir)
 
 install_core:
 	mkdir -p $(libdir)
@@ -562,7 +579,7 @@ install_internal: ${TEST_NODES} ${TEST_APPS}
 
 install_nonpython: install_core install_live install_pro
 
-tarball: install_python install_nonpython docs_pdf
+tarball: install_python install_nonpython install_clusterd docs_pdf
 	rm ${DESTDIR}/solar_capture-$(SC_VER_STR).tgz || true
 	tar czf solar_capture-$(SC_VER_STR).tgz -C ${DESTDIR} .
 	cp solar_capture-$(SC_VER_STR).tgz ${DESTDIR}/solar_capture-$(SC_VER_STR).tgz
