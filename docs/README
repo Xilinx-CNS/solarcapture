@@ -36,6 +36,8 @@ Introduction
 
  - C bindings for embedding SolarCapture into applications.
 
+ - Command line solar_clusterd tool, for application clustering.
+
  This is the open source release of SolarCapture.  Previous releases may
  be downloaded from:
     https://www.xilinx.com/support/download/nic-software-and-drivers.html
@@ -47,6 +49,7 @@ Dependencies
  - A general build environment - gcc, make, libc, libc-devel and python-devel.
  - libaio and libaio-devel
  - libpcap and libpcap-devel
+ - libnl-genl-3-dev
  - Onload
 
  SolarCapture uses device drivers that are included in the OpenOnload
