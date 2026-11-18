@@ -70,8 +70,9 @@ class Config(object):
         lines = [l.split(';', 1)[0].strip() for l in lines]
         lines = [l for l in lines if l != '']
 
-        # Join lines ending with '\'
-        for i in range(len(lines)):
+        # Join lines ending with '\'.  Walk backwards so that a value
+        # continued over several lines is folded into one line.
+        for i in reversed(range(len(lines))):
             if lines[i].endswith('\\'):
                 if i == len(lines) - 1:
                     raise SyntaxError("Invalid line: '%s'" % lines[i])
