@@ -4,7 +4,7 @@ SPDX-License-Identifier: MIT
 X-SPDX-Copyright-Text: Copyright (C) 2023, Advanced Micro Devices, Inc.
 '''
 
-import sys, os, textwrap
+import sys, os, errno, textwrap
 
 top = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), '..'))
 if os.path.exists(os.path.join(top, 'src', 'python', 'solar_capture')):
@@ -47,9 +47,11 @@ class Bunch:
 
 def get_attrs(obj=None):
     if options.all:
-        filter_out = ['hidden']
+        filter_out = [b'hidden']
     else:
-        filter_out = ['hidden', 'unstable', 'beta', 'deprecated']
+        filter_out = [b'hidden', b'unstable', b'beta', b'deprecated']
+    if obj is not None:
+        obj = bytes(obj,'utf-8')
     names = sc.sc.attr_doc("")
     attrs = dict()
     for name in names:
@@ -59,7 +61,7 @@ def get_attrs(obj=None):
         if a.status in filter_out:
             continue
         a.objects = a.objects.split(b',')
-        if obj is None or obj in a.objects or "sc_"+obj in a.objects:
+        if obj is None or obj in a.objects or b"sc_"+obj in a.objects:
             attrs[a.name] = a
     return attrs
 
@@ -104,6 +106,7 @@ def cmd_attr(args):
             a = attrs[name]
             attrs = { a.name : a }
         else:
+            attrs = get_attrs(obj=args[0])
             if not attrs:
                 err("ERROR: '%s' is not an attribute name or an object "
                     "type\n" % args[0])
